@@ -1031,7 +1031,6 @@ _widgets:
   button: "ボタン"
   onlineUsers: "オンラインユーザー"
   jobQueue: "ジョブキュー"
-  serverMetric: "サーバーメトリクス"
 
 _cw:
   hide: "隠す"
