@@ -110,7 +110,6 @@
 						<div class="bottom">
 							<span class="username"><MkAcct :user="user" :detail="true" /></span>
 							<span v-if="user.isAdmin" :title="$ts.isAdmin" style="color: var(--badge);"><Fa :icon="faBookmark"/></span>
-							<span v-if="!user.isAdmin && user.isModerator" :title="$ts.isModerator" style="color: var(--badge);"><Fa :icon="farBookmark"/></span>
 							<span v-if="user.isLocked" :title="$ts.isLocked"><Fa :icon="faLock"/></span>
 							<span v-if="user.isBot" :title="$ts.isBot"><Fa :icon="faRobot"/></span>
 						</div>
@@ -127,7 +126,6 @@
 					<div class="bottom">
 						<span class="username"><MkAcct :user="user" :detail="true" /></span>
 						<span v-if="user.isAdmin" :title="$ts.isAdmin" style="color: var(--badge);"><Fa :icon="faBookmark"/></span>
-						<span v-if="!user.isAdmin && user.isModerator" :title="$ts.isModerator" style="color: var(--badge);"><Fa :icon="farBookmark"/></span>
 						<span v-if="user.isLocked" :title="$ts.isLocked"><Fa :icon="faLock"/></span>
 						<span v-if="user.isBot" :title="$ts.isBot"><Fa :icon="faRobot"/></span>
 					</div>
