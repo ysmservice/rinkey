@@ -17,7 +17,6 @@
 			</div>
 			<div class="status">
 				<span class="staff" v-if="user.isAdmin"><Fa :icon="faBookmark"/></span>
-				<span class="staff" v-if="user.isModerator"><Fa :icon="farBookmark"/></span>
 				<span class="punished" v-if="user.isSilenced"><Fa :icon="faMicrophoneSlash"/></span>
 				<span class="punished" v-if="user.isSuspended"><Fa :icon="faSnowflake"/></span>
 			</div>
