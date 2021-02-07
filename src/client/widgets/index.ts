@@ -17,6 +17,7 @@ export default function(app: App) {
 	app.component('MkwOnlineUsers', defineAsyncComponent(() => import('./online-users.vue')));
 	app.component('MkwJobQueue', defineAsyncComponent(() => import('./job-queue.vue')));
 	app.component('MkwButton', defineAsyncComponent(() => import('./button.vue')));
+	app.component('MkwAiscript', defineAsyncComponent(() => import('./aiscript.vue')));
 }
 
 export const widgets = [
@@ -36,4 +37,5 @@ export const widgets = [
 	'onlineUsers',
 	'jobQueue',
 	'button',
+	'aiscript',
 ];
