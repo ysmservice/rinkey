@@ -43,7 +43,6 @@
 					</MkA>
 					<span class="is-bot" v-if="appearNote.user.isBot">bot</span>
 					<span class="admin" v-if="appearNote.user.isAdmin"><Fa :icon="faBookmark"/></span>
-					<span class="moderator" v-if="!appearNote.user.isAdmin && appearNote.user.isModerator"><Fa :icon="farBookmark"/></span>
 					<span class="visibility" v-if="appearNote.visibility !== 'public'">
 						<Fa v-if="appearNote.visibility === 'home'" :icon="faHome"/>
 						<Fa v-if="appearNote.visibility === 'followers'" :icon="faUnlock"/>
