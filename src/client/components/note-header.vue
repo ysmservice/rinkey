@@ -60,8 +60,7 @@ export default defineComponent({
 		display: block;
 		margin: 0 .5em 0 0;
 		padding: 0;
-		overflow: hidden; // overflow: clip; をSafariが対応したら消す
-		overflow: clip;
+		overflow: hidden;
 		font-size: 1em;
 		font-weight: bold;
 		text-decoration: none;
@@ -90,8 +89,7 @@ export default defineComponent({
 
 	> .username {
 		margin: 0 .5em 0 0;
-		overflow: hidden; // overflow: clip; をSafariが対応したら消す
-		overflow: clip;
+		overflow: hidden;
 		text-overflow: ellipsis;
 	}
 
