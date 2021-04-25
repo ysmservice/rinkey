@@ -110,7 +110,6 @@
 						<div class="bottom">
 							<span class="username"><MkAcct :user="user" :detail="true" /></span>
 							<span v-if="user.isAdmin" :title="$ts.isAdmin" style="color: var(--badge);"><i class="fas fa-bookmark"></i></span>
-							<span v-if="!user.isAdmin && user.isModerator" :title="$ts.isModerator" style="color: var(--badge);"><i class="far fa-bookmark"></i></span>
 							<span v-if="user.isLocked" :title="$ts.isLocked"><i class="fas fa-lock"></i></span>
 							<span v-if="user.isBot" :title="$ts.isBot"><i class="fas fa-robot"></i></span>
 						</div>
