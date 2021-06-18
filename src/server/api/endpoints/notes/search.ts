@@ -73,7 +73,7 @@ export default define(meta, async (ps, me) => {
 		}
 
 		query
-			.andWhere('note.text ILIKE :q', { q: `%${ps.query}%` })
+			.andWhere('note.text &@~ :q', { q: `${ps.query}` })
 			.innerJoinAndSelect('note.user', 'user')
 			.leftJoinAndSelect('note.reply', 'reply')
 			.leftJoinAndSelect('note.renote', 'renote')
