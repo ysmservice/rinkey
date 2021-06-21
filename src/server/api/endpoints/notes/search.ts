@@ -65,8 +65,8 @@ export const meta = {
 export default define(meta, async (ps, me) => {
 	if (es == null) {
 		const query = makePaginationQuery(Notes.createQueryBuilder('note'), ps.sinceId, ps.untilId);
-		const sinceRegex = /since:([0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01]))/g;
-		const untilRegex = /until:([0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01]))/g;
+		const sinceRegex = /since:([0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])) /g;
+		const untilRegex = /until:([0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])) /g;
 
 		if (ps.userId) {
 			query.andWhere('note.userId = :userId', { userId: ps.userId });
