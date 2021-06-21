@@ -65,8 +65,8 @@ export const meta = {
 export default define(meta, async (ps, me) => {
 	if (es == null) {
 		const query = makePaginationQuery(Notes.createQueryBuilder('note'), ps.sinceId, ps.untilId);
-		const sinceRegex = /since:[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])/g;
-		const untilRegex = /until:[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])/g;
+		const sinceRegex = /since:([0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01]))/g;
+		const untilRegex = /until:([0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01]))/g;
 
 		if (ps.userId) {
 			query.andWhere('note.userId = :userId', { userId: ps.userId });
@@ -75,11 +75,11 @@ export default define(meta, async (ps, me) => {
 		}
 
 		if (sinceRegex.test(ps.query)) {
-			query.andWhere('note.createdAt > :since', {since: `${ps.query.match(sinceRegex)![0].substr(5, 15)}`});
+			query.andWhere('note.createdAt > :since', {since: `${RegExp.$1}`});
 			ps.query = ps.query.replaceAll(sinceRegex, '');
 		}
 		if (untilRegex.test(ps.query)) {
-			query.andWhere('note.createdAt < :until', {until: `${ps.query.match(untilRegex)![0].substr(5, 15)} 23:59:59`});
+			query.andWhere('note.createdAt < :until', {until: `${RegExp.$1} 23:59:59`});
 			ps.query = ps.query.replaceAll(untilRegex, '');
 		}
 
