@@ -33,6 +33,14 @@
 			</template>
 		</div>
 	</div>
+
+	<div class="tosvideo-container" v-if="tosVideo">
+		<div class="tosvideo-play" v-if="!tosVideoPlaying" @click="playTos">
+			<p>クリックして利用規約を確認<br>※音が出ます</p>
+			<span>こちらの動画を確認すると登録が可能になります</span>
+		</div>
+		<video id="tos" src="https://dl.misskey.io/tos.mp4" playsinline></video>
+	</div>
 </div>
 </template>
 
@@ -75,6 +83,8 @@ export default defineComponent({
 			instanceName,
 			pageInfo: null,
 			meta: null,
+			tosVideo: false,
+			tosVideoPlaying: false,
 			narrow: window.innerWidth < 1280,
 			announcements: {
 				endpoint: 'announcements',
@@ -97,9 +107,23 @@ export default defineComponent({
 		},
 
 		signup() {
-			os.popup(XSignupDialog, {
-				autoSet: true
-			}, {}, 'closed');
+			this.tosVideo = true;
+			setTimeout(() => {
+				const video = document.getElementById('tos');
+				video.addEventListener('ended', () => {
+					console.log('tos end');
+					this.tosVideo = false;
+					os.popup(XSignupDialog, {
+						autoSet: true
+					}, {}, 'closed');
+				});
+			}, 100);
+		},
+
+		playTos() {
+			const video = document.getElementById('tos');
+			video.play();
+			this.tosVideoPlaying = true;
 		}
 	}
 });
@@ -251,6 +275,49 @@ export default defineComponent({
 				}
 			}
 		}
+	}
+}
+
+.tosvideo-container {
+	position: fixed;
+	z-index: 99999;
+	top: 0;
+	left: 0;
+	width: 100%;
+	height: 100%;
+	background: #fff;
+
+	> .tosvideo-play {
+		width: 95vw;
+		max-width: 360px;
+		height: 130px;
+		left: 0;
+		right: 0;
+		top: 0;
+		bottom: 0;
+		margin: auto;
+		position: absolute;
+		text-align: center;
+		background-color: var(--accent);
+		padding: 10px 20px;
+		border-radius: 130px;
+		color: var(--fgHighlighted);
+		cursor: pointer;
+
+		> p {
+			font-size: 1.25rem;
+			font-weight: bold;
+		}
+
+		> span {
+			font-size: 0.75rem;
+		}
+	}
+
+	> #tos {
+		height: 100%;
+		width: 100%;
+		pointer-events: none;
 	}
 }
 </style>
