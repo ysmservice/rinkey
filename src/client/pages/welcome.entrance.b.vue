@@ -31,6 +31,10 @@
 		</div>
 		<img src="/static-assets/client/misskey.svg" class="misskey"/>
 	</div>
+
+	<div class="tosvideo-container" v-if="tosVideo">
+		<video id="tos" src="https://dl.misskey.io/tos.mp4" playsinline></video>
+	</div>
 </div>
 </template>
 
@@ -63,6 +67,7 @@ export default defineComponent({
 			stats: null,
 			tags: [],
 			onlineUsersCount: null,
+			tosVideo: false,
 		};
 	},
 
@@ -95,9 +100,18 @@ export default defineComponent({
 		},
 
 		signup() {
-			os.popup(XSignupDialog, {
-				autoSet: true
-			}, {}, 'closed');
+			this.tosVideo = true;
+			setTimeout(() => {
+				const video = document.getElementById('tos');
+				video.play();
+				video.addEventListener('ended', () => {
+					console.log('tos end');
+					this.tosVideo = false;
+					os.popup(XSignupDialog, {
+						autoSet: true
+					}, {}, 'closed');
+				});
+			}, 100);
 		},
 
 		showMenu(ev) {
@@ -231,6 +245,22 @@ export default defineComponent({
 				}
 			}
 		}
+	}
+}
+
+.tosvideo-container {
+	position: fixed;
+	z-index: 99999;
+	top: 0;
+	left: 0;
+	width: 100%;
+	height: 100%;
+	background: #fff;
+
+	> #tos {
+		height: 100%;
+		width: 100%;
+		pointer-events: none;
 	}
 }
 </style>
