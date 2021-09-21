@@ -279,7 +279,7 @@ export default defineComponent({
 }
 
 .tosvideo-container {
-	position: fixed;
+	position: absolute;
 	z-index: 99999;
 	top: 0;
 	left: 0;

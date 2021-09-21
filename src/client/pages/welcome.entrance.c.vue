@@ -92,6 +92,7 @@ export default defineComponent({
 			tags: [],
 			onlineUsersCount: null,
 			tosVideo: false,
+			tosVideoPlaying: false,
 		};
 	},
 

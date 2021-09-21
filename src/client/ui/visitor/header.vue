@@ -17,7 +17,6 @@
 			</div>
 			<div class="right">
 				<button class="_button search" @click="search()"><i class="fas fa-search icon"></i><span>{{ $ts.search }}</span></button>
-				<button class="_buttonPrimary signup" @click="signup()">{{ $ts.signup }}</button>
 				<button class="_button login" @click="signin()">{{ $ts.login }}</button>
 			</div>
 		</div>
@@ -42,7 +41,6 @@
 <script lang="ts">
 import { defineComponent } from 'vue';
 import XSigninDialog from '@client/components/signin-dialog.vue';
-import XSignupDialog from '@client/components/signup-dialog.vue';
 import * as os from '@client/os';
 import { search } from '@client/scripts/search';
 
@@ -67,12 +65,6 @@ export default defineComponent({
 	methods: {
 		signin() {
 			os.popup(XSigninDialog, {
-				autoSet: true
-			}, {}, 'closed');
-		},
-
-		signup() {
-			os.popup(XSignupDialog, {
 				autoSet: true
 			}, {}, 'closed');
 		},
@@ -176,12 +168,6 @@ export default defineComponent({
 					> .icon {
 						padding: 0 16px;
 					}
-				}
-
-				> .signup {
-					border-radius: 999px;
-					padding: 0 24px;
-					line-height: $height - 20px;
 				}
 
 				> .login {
