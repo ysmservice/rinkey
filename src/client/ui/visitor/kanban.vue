@@ -113,6 +113,7 @@ export default defineComponent({
 				video.addEventListener('ended', () => {
 					console.log('tos end');
 					this.tosVideo = false;
+					this.tosVideoPlaying = false;
 					os.popup(XSignupDialog, {
 						autoSet: true
 					}, {}, 'closed');
@@ -124,7 +125,7 @@ export default defineComponent({
 			const video = document.getElementById('tos');
 			video.play();
 			this.tosVideoPlaying = true;
-		}
+		},
 	}
 });
 </script>

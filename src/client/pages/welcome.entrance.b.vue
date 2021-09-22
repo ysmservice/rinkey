@@ -111,6 +111,7 @@ export default defineComponent({
 				video.addEventListener('ended', () => {
 					console.log('tos end');
 					this.tosVideo = false;
+					this.tosVideoPlaying = false;
 					os.popup(XSignupDialog, {
 						autoSet: true
 					}, {}, 'closed');
