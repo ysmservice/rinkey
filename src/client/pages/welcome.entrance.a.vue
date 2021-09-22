@@ -53,7 +53,7 @@
 			<p>クリックして利用規約を確認<br>※音が出ます</p>
 			<span>こちらの動画を確認すると登録が可能になります</span>
 		</div>
-		<video id="tos" src="https://dl.misskey.io/tos.mp4" playsinline></video>
+		<video id="tos" src="https://go.misskey.io/tosVideo" playsinline></video>
 	</div>
 </div>
 </template>
