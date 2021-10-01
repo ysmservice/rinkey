@@ -5,8 +5,6 @@
 	</MkA>
 	<div class="is-bot" v-if="note.user.isBot">bot</div>
 	<div class="username"><MkAcct :user="note.user"/></div>
-	<div class="admin" v-if="note.user.isAdmin"><i class="fas fa-bookmark"></i></div>
-	<div class="moderator" v-if="!note.user.isAdmin && note.user.isModerator"><i class="far fa-bookmark"></i></div>
 	<div class="info">
 		<span class="mobile" v-if="note.viaMobile"><i class="fas fa-mobile-alt"></i></span>
 		<MkA class="created-at" :to="notePage(note)">
