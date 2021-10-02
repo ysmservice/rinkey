@@ -1,17 +1,13 @@
 <template>
-<div class="qmfkfnzj">
-	<a v-if="external" class="main _button" :href="to" target="_blank">
+<div class="qmfkfnzh">
+	<a class="main _button" :href="to" target="_blank" v-if="external">
 		<span class="icon"><slot name="icon"></slot></span>
 		<span class="text"><slot></slot></span>
 	</a>
-	<MkA v-else-if="to" class="main _button" :class="{ active }" :to="to" :behavior="behavior">
+	<MkA class="main _button" :class="{ active }" :to="to" :behavior="behavior" v-else>
 		<span class="icon"><slot name="icon"></slot></span>
 		<span class="text"><slot></slot></span>
 	</MkA>
-	<button v-else class="main _button button" :class="{ danger }">
-		<span class="icon"><slot name="icon"></slot></span>
-		<span class="text"><slot></slot></span>
-	</button>
 </div>
 </template>
 
@@ -22,13 +18,9 @@ export default defineComponent({
 	props: {
 		to: {
 			type: String,
-			required: false
+			required: true
 		},
 		active: {
-			type: Boolean,
-			required: false
-		},
-		danger: {
 			type: Boolean,
 			required: false
 		},
@@ -41,11 +33,15 @@ export default defineComponent({
 			required: false,
 		},
 	},
+	data() {
+		return {
+		};
+	}
 });
 </script>
 
 <style lang="scss" scoped>
-.qmfkfnzj {
+.qmfkfnzh {
 	> .main {
 		display: flex;
 		align-items: center;
@@ -63,10 +59,6 @@ export default defineComponent({
 		&.active {
 			color: var(--accent);
 			background: var(--accentedBg);
-		}
-
-		&.danger {
-			color: var(--error);
 		}
 
 		> .icon {
