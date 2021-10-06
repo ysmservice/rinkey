@@ -11,7 +11,7 @@
 		bg: '#f9f9f9',
 		fg: '#676767',
 		divider: '#e8e8e8',
-		header: ':alpha<0.7<@panel',
+		header: ':alpha<0.95<@panel',
 		navBg: '#fff',
 		panel: '#fff',
 		panelHeaderDivider: '@divider',

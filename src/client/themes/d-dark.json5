@@ -15,7 +15,7 @@
 		panel: '#2d2d2d',
 		panelHeaderBg: '@panel',
 		panelHeaderDivider: '@divider',
-		header: ':alpha<0.7<@panel',
+		header: ':alpha<0.95<@panel',
 		navBg: '#363636',
 		renote: '@accent',
 		mention: '#da6d35',
