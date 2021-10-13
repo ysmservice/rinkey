@@ -1,10 +1,5 @@
 <template>
-<div class="fdidabkb" :class="{ slim: titleOnly || narrow }" :style="`--height:${height};`" :key="key">
-	<transition :name="$store.state.animation ? 'header' : ''" mode="out-in" appear>
-		<div class="buttons left" v-if="backButton">
-			<button class="_button button back" @click.stop="$emit('back')" @touchstart="preventDrag" v-tooltip="$ts.goBack"><i class="fas fa-chevron-left"></i></button>
-		</div>
-	</transition>
+<div class="fdidabkb" :class="{ slim: narrow, thin }" :style="{ background: bg }" @click="onClick" ref="el">
 	<template v-if="info">
 		<div class="titleContainer" @click="showTabsPopup">
 			<i v-if="info.icon" class="icon" :class="info.icon"></i>
@@ -31,137 +26,182 @@
 	</template>
 	<div class="buttons right">
 		<template v-if="info && info.actions && !narrow">
-			<button v-for="action in info.actions" class="_button button" :class="{ highlighted: action.highlighted }" @click.stop="action.handler" @touchstart="preventDrag" v-tooltip="action.text"><i :class="action.icon"></i></button>
+			<template v-for="action in info.actions">
+				<MkButton class="fullButton" v-if="action.asFullButton" @click.stop="action.handler" primary><i :class="action.icon" style="margin-right: 6px;"></i>{{ action.text }}</MkButton>
+				<button v-else class="_button button" :class="{ highlighted: action.highlighted }" @click.stop="action.handler" @touchstart="preventDrag" v-tooltip="action.text"><i :class="action.icon"></i></button>
+			</template>
 		</template>
 		<button v-if="shouldShowMenu" class="_button button" @click.stop="showMenu" @touchstart="preventDrag" v-tooltip="$ts.menu"><i class="fas fa-ellipsis-h"></i></button>
-		<button v-if="closeButton" class="_button button" @click.stop="$emit('close')" @touchstart="preventDrag" v-tooltip="$ts.close"><i class="fas fa-times"></i></button>
 	</div>
 </div>
 </template>
 
 <script lang="ts">
-import { defineComponent } from 'vue';
+import { computed, defineComponent, onMounted, onUnmounted, PropType, ref } from 'vue';
+import * as tinycolor from 'tinycolor2';
 import { popupMenu } from '@client/os';
 import { url } from '@client/config';
+import { scrollToTop } from '@client/scripts/scroll';
+import MkButton from '@client/components/ui/button.vue';
+import { i18n } from '@client/i18n';
+import { globalEvents } from '@client/events';
 
 export default defineComponent({
+	components: {
+		MkButton
+	},
+
 	props: {
 		info: {
+			type: Object as PropType<{
+				actions?: {}[];
+				tabs?: {}[];
+			}>,
 			required: true
 		},
 		menu: {
 			required: false
 		},
-		backButton: {
-			type: Boolean,
+		thin: {
 			required: false,
-			default: false,
-		},
-		closeButton: {
-			type: Boolean,
-			required: false,
-			default: false,
-		},
-		titleOnly: {
-			type: Boolean,
-			required: false,
-			default: false,
+			default: false
 		},
 	},
 
-	data() {
-		return {
-			narrow: false,
-			height: 0,
-			key: 0,
-		};
-	},
-
-	computed: {
-		hasTabs(): boolean {
-			return this.info.tabs && this.info.tabs.length > 0;
-		},
-
-		shouldShowMenu() {
-			if (this.info == null) return false;
-			if (this.info.actions != null && this.narrow) return true;
-			if (this.info.menu != null) return true;
-			if (this.info.share != null) return true;
-			if (this.menu != null) return true;
+	setup(props) {
+		const el = ref<HTMLElement>(null);
+		const bg = ref(null);
+		const narrow = ref(false);
+		const height = ref(0);
+		const hasTabs = computed(() => {
+			return props.info.tabs && props.info.tabs.length > 0;
+		});
+		const shouldShowMenu = computed(() => {
+			if (props.info == null) return false;
+			if (props.info.actions != null && narrow.value) return true;
+			if (props.info.menu != null) return true;
+			if (props.info.share != null) return true;
+			if (props.menu != null) return true;
 			return false;
-		}
-	},
+		});
 
-	watch: {
-		info() {
-			this.key++;
-		},
-	},
-
-	mounted() {
-		this.height = this.$el.parentElement.offsetHeight + 'px';
-		this.narrow = this.titleOnly || this.$el.parentElement.offsetWidth < 500;
-		new ResizeObserver((entries, observer) => {
-			this.height = this.$el.parentElement.offsetHeight + 'px';
-			this.narrow = this.titleOnly || this.$el.parentElement.offsetWidth < 500;
-		}).observe(this.$el);
-	},
-
-	methods: {
-		share() {
+		const share = () => {
 			navigator.share({
-				url: url + this.info.path,
-				...this.info.share,
+				url: url + props.info.path,
+				...props.info.share,
 			});
-		},
+		};
 
-		showMenu(ev) {
-			let menu = this.info.menu ? this.info.menu() : [];
-			if (this.narrow && this.info.actions) {
-				menu = [...this.info.actions.map(x => ({
+		const showMenu = (ev: MouseEvent) => {
+			let menu = props.info.menu ? props.info.menu() : [];
+			if (narrow.value && props.info.actions) {
+				menu = [...props.info.actions.map(x => ({
 					text: x.text,
 					icon: x.icon,
 					action: x.handler
 				})), menu.length > 0 ? null : undefined, ...menu];
 			}
-			if (this.info.share) {
+			if (props.info.share) {
 				if (menu.length > 0) menu.push(null);
 				menu.push({
-					text: this.$ts.share,
+					text: i18n.locale.share,
 					icon: 'fas fa-share-alt',
-					action: this.share
+					action: share
 				});
 			}
-			if (this.menu) {
+			if (props.menu) {
 				if (menu.length > 0) menu.push(null);
-				menu = menu.concat(this.menu);
+				menu = menu.concat(props.menu);
 			}
 			popupMenu(menu, ev.currentTarget || ev.target);
-		},
+		};
 
-		showTabsPopup(ev) {
-			if (!this.hasTabs) return;
-			if (!this.narrow) return;
+		const showTabsPopup = (ev: MouseEvent) => {
+			if (!hasTabs.value) return;
+			if (!narrow.value) return;
 			ev.preventDefault();
 			ev.stopPropagation();
-			const menu = this.info.tabs.map(tab => ({
+			const menu = props.info.tabs.map(tab => ({
 				text: tab.title,
 				icon: tab.icon,
 				action: tab.onClick,
 			}));
 			popupMenu(menu, ev.currentTarget || ev.target);
-		},
+		};
 
-		preventDrag(ev) {
+		const preventDrag = (ev: TouchEvent) => {
 			ev.stopPropagation();
-		}
-	}
+		};
+
+		const onClick = () => {
+			scrollToTop(el.value, { behavior: 'smooth' });
+		};
+
+		const calcBg = () => {
+			const rawBg = props.info?.bg || 'var(--bg)';
+			const tinyBg = tinycolor(rawBg.startsWith('var(') ? getComputedStyle(document.documentElement).getPropertyValue(rawBg.slice(4, -1)) : rawBg);
+			tinyBg.setAlpha(0.85);
+			bg.value = tinyBg.toRgbString();
+		};
+
+		onMounted(() => {
+			calcBg();
+			globalEvents.on('themeChanged', calcBg);
+			onUnmounted(() => {
+				globalEvents.off('themeChanged', calcBg);
+			});
+		
+			if (el.value.parentElement) {
+				narrow.value = el.value.parentElement.offsetWidth < 500;
+				const ro = new ResizeObserver((entries, observer) => {
+					if (el.value) {
+						narrow.value = el.value.parentElement.offsetWidth < 500;
+					}
+				});
+				ro.observe(el.value.parentElement);
+				onUnmounted(() => {
+					ro.disconnect();
+				});
+				setTimeout(() => {
+					const currentStickyTop = getComputedStyle(el.value.parentElement).getPropertyValue('--stickyTop') || '0px';
+					el.value.style.setProperty('--stickyTop', currentStickyTop);
+					el.value.parentElement.style.setProperty('--stickyTop', `calc(${currentStickyTop} + ${el.value.offsetHeight}px)`);
+				}, 100); // レンダリング順序の関係で親のstickyTopの設定が少し遅れることがあるため
+			}
+		});
+
+		return {
+			el,
+			bg,
+			narrow,
+			height,
+			hasTabs,
+			shouldShowMenu,
+			share,
+			showMenu,
+			showTabsPopup,
+			preventDrag,
+			onClick,
+		};
+	},
 });
 </script>
 
 <style lang="scss" scoped>
 .fdidabkb {
+	--height: 60px;
 	display: flex;
+	position: sticky;
+	top: var(--stickyTop, 0);
+	z-index: 1000;
+	width: 100%;
+	-webkit-backdrop-filter: var(--blur, blur(15px));
+	backdrop-filter: var(--blur, blur(15px));
+	border-bottom: solid 0.5px var(--divider);
+
+	&.thin {
+		--height: 50px;
+	}
 
 	&.slim {
 		text-align: center;
@@ -210,6 +250,12 @@ export default defineComponent({
 				color: var(--accent);
 			}
 		}
+
+		> .fullButton {
+			& + .fullButton {
+				margin-left: 12px;
+			}
+		}
 	}
 
 	> .titleContainer {
@@ -220,6 +266,7 @@ export default defineComponent({
 		text-align: left;
 		font-weight: bold;
 		flex-shrink: 0;
+		margin-left: 24px;
 
 		> .avatar {
 			$size: 32px;
