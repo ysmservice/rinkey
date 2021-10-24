@@ -1,7 +1,5 @@
 <template>
 <div class="lknzcolw">
-	<MkHeader :info="header"/>
-
 	<div class="users">
 		<div class="inputs">
 			<MkSelect v-model="sort" style="flex: 1;">
@@ -89,11 +87,6 @@ export default defineComponent({
 				title: this.$ts.users,
 				icon: 'fas fa-users',
 				bg: 'var(--bg)',
-			},
-			header: {
-				title: this.$ts.users,
-				icon: 'fas fa-users',
-				bg: 'var(--bg)',
 				actions: [{
 					icon: 'fas fa-search',
 					text: this.$ts.search,
@@ -108,7 +101,7 @@ export default defineComponent({
 					icon: 'fas fa-search',
 					text: this.$ts.lookup,
 					handler: this.lookupUser
-				}]
+				}],
 			},
 			sort: '+createdAt',
 			state: 'all',
