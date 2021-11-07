@@ -1,4 +1,5 @@
 import $ from 'cafy';
+import validate from 'deep-email-validator';
 import define from '../../define';
 import { UserProfiles } from '@/models/index';
 
@@ -26,10 +27,20 @@ export const meta = {
 };
 
 export default define(meta, async (ps) => {
-	const exist = await UserProfiles.count({
+	let exist = await UserProfiles.count({
 		emailVerified: true,
 		email: ps.emailAddress,
 	});
+
+	const res = await validate({
+		email: ps.emailAddress,
+		validateRegex: true,
+		validateMx: true,
+		validateTypo: false, // TLDを見ているみたいだけどclubとか弾かれるので
+		validateDisposable: true,
+		validateSMTP: false // 日本だと25ポートが殆どのプロバイダーで塞がれていてタイムアウトになるので
+	});
+	if (!res.valid) exist = 1;
 
 	return {
 		available: exist === 0
