@@ -54,7 +54,7 @@ export default defineComponent({
 	},
 	methods: {
 		fetch() {
-			fetch(`https://api.rss2json.com/v1/api.json?rss_url=${this.props.url}`, {
+			fetch(`https://api.rss2json.com/v1/api.json?api_key=jplfu0j47mrabo7ldcwscwsbc6qmkhlfp3wnxjvb&rss_url=${this.props.url}`, {
 			}).then(res => {
 				res.json().then(feed => {
 					this.items = feed.items;
