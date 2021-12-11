@@ -27,7 +27,7 @@ const widget = define({
 		},
 		url: {
 			type: 'string',
-			default: 'http://feeds.afpbb.com/rss/afpbb/afpbbnews',
+			default: 'https://rss.misskey.io',
 		},
 	})
 });
