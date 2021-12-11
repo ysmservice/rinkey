@@ -27,7 +27,7 @@ const widget = define({
 		},
 		url: {
 			type: 'string',
-			default: 'https://rss.misskey.io',
+			default: 'https://rss.misskey.io/news',
 		},
 	})
 });
