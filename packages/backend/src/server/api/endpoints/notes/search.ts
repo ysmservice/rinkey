@@ -93,18 +93,18 @@ export default define(meta, async (ps, me) => {
 			ps.query = ps.query.replaceAll(searchModeRegex, '');
 		}
 		if (sinceRegex.test(ps.query)) {
-			query.andWhere('note.createdAt > :since', {since: `${RegExp.$1}`});
+			query.andWhere('note.createdAt > :since', { since: `${RegExp.$1}` });
 			ps.query = ps.query.replaceAll(sinceRegex, '');
 		}
 		if (untilRegex.test(ps.query)) {
-			query.andWhere('note.createdAt < :until', {until: `${RegExp.$1} 23:59:59`});
+			query.andWhere('note.createdAt < :until', { until: `${RegExp.$1} 23:59:59` });
 			ps.query = ps.query.replaceAll(untilRegex, '');
 		}
 		if (hostRegex.test(ps.query)) {
 			if (RegExp.$1 === 'local') {
 				query.andWhere('note.userHost IS NULL');
 			} else {
-				query.andWhere('note.userHost = :host', {host: `${RegExp.$1}`});
+				query.andWhere('note.userHost = :host', { host: `${RegExp.$1}` });
 			}
 			ps.query = ps.query.replaceAll(hostRegex, '');
 		}
