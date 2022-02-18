@@ -66,7 +66,9 @@ export const meta = {
 // eslint-disable-next-line import/no-default-export
 export default define(meta, async (ps, me) => {
 	if (es == null) {
+		let searchOperator = '&@~';
 		const query = makePaginationQuery(Notes.createQueryBuilder('note'), ps.sinceId, ps.untilId);
+		const searchModeRegex = /mode:(full|fuzzy|exact) /g;
 		const sinceRegex = /since:([0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])) /g;
 		const untilRegex = /until:([0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])) /g;
 		const hostRegex = /host:([a-zA-Z0-9.-]+) /g;
@@ -77,6 +79,19 @@ export default define(meta, async (ps, me) => {
 			query.andWhere('note.channelId = :channelId', { channelId: ps.channelId });
 		}
 
+		if (searchModeRegex.test(ps.query)) {
+			switch (RegExp.$1) {
+				case 'fuzzy':
+					searchOperator = '&@*';
+					break;
+				case 'exact':
+					searchOperator = '=';
+					break;
+				default:
+					searchOperator = '&@~';
+			}
+			ps.query = ps.query.replaceAll(searchModeRegex, '');
+		}
 		if (sinceRegex.test(ps.query)) {
 			query.andWhere('note.createdAt > :since', {since: `${RegExp.$1}`});
 			ps.query = ps.query.replaceAll(sinceRegex, '');
@@ -97,7 +112,7 @@ export default define(meta, async (ps, me) => {
 		ps.query = ps.query.replaceAll(/\s\s+/g, ' ');
 
 		query
-			.andWhere('note.text &@~ :q', { q: `${ps.query}` })
+			.andWhere('note.text ' + searchOperator + ' :q', { q: `${ps.query}` })
 			.innerJoinAndSelect('note.user', 'user')
 			.leftJoinAndSelect('note.reply', 'reply')
 			.leftJoinAndSelect('note.renote', 'renote')
