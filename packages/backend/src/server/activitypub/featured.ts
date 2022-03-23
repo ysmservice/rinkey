@@ -9,7 +9,6 @@ import { Users, Notes, UserNotePinings } from '@/models/index.js';
 export default async (ctx: Router.RouterContext) => {
 	const userId = ctx.params.user;
 
-	// Verify user
 	const user = await Users.findOne({
 		id: userId,
 		host: null,
