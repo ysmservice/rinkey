@@ -145,11 +145,6 @@ const menuDef = $computed(() => [{
 		to: '/admin/email-settings',
 		active: currentPage?.route.name === 'email-settings',
 	}, {
-		icon: 'fas fa-cloud',
-		text: i18n.ts.objectStorage,
-		to: '/admin/object-storage',
-		active: currentPage?.route.name === 'object-storage',
-	}, {
 		icon: 'fas fa-lock',
 		text: i18n.ts.security,
 		to: '/admin/security',
