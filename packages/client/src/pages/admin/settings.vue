@@ -88,11 +88,6 @@
 					<FormSection>
 						<template #label>{{ i18n.ts.files }}</template>
 
-						<FormSwitch v-model="cacheRemoteFiles" class="_formBlock">
-							<template #label>{{ i18n.ts.cacheRemoteFiles }}</template>
-							<template #caption>{{ i18n.ts.cacheRemoteFilesDescription }}</template>
-						</FormSwitch>
-
 						<FormSplit :min-width="280">
 							<FormInput v-model="localDriveCapacityMb" type="number" class="_formBlock">
 								<template #label>{{ i18n.ts.driveCapacityPerLocalAccount }}</template>
@@ -100,11 +95,6 @@
 								<template #caption>{{ i18n.ts.inMb }}</template>
 							</FormInput>
 
-							<FormInput v-model="remoteDriveCapacityMb" type="number" :disabled="!cacheRemoteFiles" class="_formBlock">
-								<template #label>{{ i18n.ts.driveCapacityPerRemoteAccount }}</template>
-								<template #suffix>MB</template>
-								<template #caption>{{ i18n.ts.inMb }}</template>
-							</FormInput>
 						</FormSplit>
 					</FormSection>
 
@@ -176,7 +166,6 @@ let defaultDarkTheme: any = $ref(null);
 let enableLocalTimeline: boolean = $ref(false);
 let enableGlobalTimeline: boolean = $ref(false);
 let pinnedUsers: string = $ref('');
-let cacheRemoteFiles: boolean = $ref(false);
 let localDriveCapacityMb: any = $ref(0);
 let remoteDriveCapacityMb: any = $ref(0);
 let enableRegistration: boolean = $ref(false);
@@ -203,7 +192,6 @@ async function init() {
 	enableLocalTimeline = !meta.disableLocalTimeline;
 	enableGlobalTimeline = !meta.disableGlobalTimeline;
 	pinnedUsers = meta.pinnedUsers.join('\n');
-	cacheRemoteFiles = meta.cacheRemoteFiles;
 	localDriveCapacityMb = meta.driveCapacityPerLocalUserMb;
 	remoteDriveCapacityMb = meta.driveCapacityPerRemoteUserMb;
 	enableRegistration = !meta.disableRegistration;
@@ -231,7 +219,6 @@ function save() {
 		disableLocalTimeline: !enableLocalTimeline,
 		disableGlobalTimeline: !enableGlobalTimeline,
 		pinnedUsers: pinnedUsers.split('\n'),
-		cacheRemoteFiles,
 		localDriveCapacityMb: parseInt(localDriveCapacityMb, 10),
 		remoteDriveCapacityMb: parseInt(remoteDriveCapacityMb, 10),
 		disableRegistration: !enableRegistration,

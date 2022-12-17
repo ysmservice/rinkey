@@ -40,7 +40,6 @@ export const paramDef = {
 		defaultDarkTheme: { type: 'string', nullable: true },
 		localDriveCapacityMb: { type: 'integer' },
 		remoteDriveCapacityMb: { type: 'integer' },
-		cacheRemoteFiles: { type: 'boolean' },
 		emailRequiredForSignup: { type: 'boolean' },
 		enableHcaptcha: { type: 'boolean' },
 		hcaptchaSiteKey: { type: 'string', nullable: true },
@@ -171,10 +170,6 @@ export default define(meta, paramDef, async (ps, me) => {
 
 	if (ps.remoteDriveCapacityMb !== undefined) {
 		set.remoteDriveCapacityMb = ps.remoteDriveCapacityMb;
-	}
-
-	if (ps.cacheRemoteFiles !== undefined) {
-		set.cacheRemoteFiles = ps.cacheRemoteFiles;
 	}
 
 	if (ps.emailRequiredForSignup !== undefined) {

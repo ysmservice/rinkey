@@ -21,10 +21,6 @@ export const meta = {
 				type: 'number',
 				optional: false, nullable: false,
 			},
-			cacheRemoteFiles: {
-				type: 'boolean',
-				optional: false, nullable: false,
-			},
 			emailRequiredForSignup: {
 				type: 'boolean',
 				optional: false, nullable: false,
@@ -383,7 +379,6 @@ export default define(meta, paramDef, async (ps, me) => {
 		translatorAvailable: instance.deeplAuthKey != null,
 		pinnedPages: instance.pinnedPages,
 		pinnedClipId: instance.pinnedClipId,
-		cacheRemoteFiles: instance.cacheRemoteFiles,
 		useStarForReactionFallback: instance.useStarForReactionFallback,
 		pinnedUsers: instance.pinnedUsers,
 		hiddenTags: instance.hiddenTags,
