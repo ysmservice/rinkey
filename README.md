@@ -1,16 +1,18 @@
 <div align="center">
 <a href="https://misskey-hub.net">
-	<img src="./assets/title_float.svg" alt="Misskey logo" style="border-radius:50%" width="400"/>
+	<img src="./assets/title_float.svg" alt="Misskey logo" style="border-radius:50%" width="300"/>
 </a>
 
-**🌎 **[Misskey](https://misskey-hub.net/)** is an open source, decentralized social media platform that's free forever! 🚀**
+**🌎 **Misskey** is an open source, federated social media platform that's free forever! 🚀**
+
+[Learn more](https://misskey-hub.net/)
 
 ---
 
-<a href="https://misskey-hub.net/instances.html">
+<a href="https://misskey-hub.net/servers/">
 		<img src="https://custom-icon-badges.herokuapp.com/badge/find_an-instance-acea31?logoColor=acea31&style=for-the-badge&logo=misskey&labelColor=363B40" alt="find an instance"/></a>
 
-<a href="https://misskey-hub.net/docs/install.html">
+<a href="https://misskey-hub.net/docs/for-admin/install/guides/">
 		<img src="https://custom-icon-badges.herokuapp.com/badge/create_an-instance-FBD53C?logoColor=FBD53C&style=for-the-badge&logo=server&labelColor=363B40" alt="create an instance"/></a>
 
 <a href="./CONTRIBUTING.md">
@@ -22,15 +24,11 @@
 <a href="https://www.patreon.com/syuilo">
 		<img src="https://custom-icon-badges.herokuapp.com/badge/become_a-patron-F96854?logoColor=F96854&style=for-the-badge&logo=patreon&labelColor=363B40" alt="become a patron"/></a>
 
----
-
-[![codecov](https://codecov.io/gh/misskey-dev/misskey/branch/develop/graph/badge.svg?token=R6IQZ3QJOL)](https://codecov.io/gh/misskey-dev/misskey)
-
 </div>
 
 <div>
 
-<a href="https://xn--931a.moe/"><img src="https://github.com/misskey-dev/misskey/blob/develop/assets/ai.png?raw=true" align="right" height="320px"/></a>
+<a href="https://xn--931a.moe/"><img src="https://github.com/MisskeyIO/misskey/blob/io/assets/ai.png?raw=true" align="right" height="320px"/></a>
 
 ## ✨ Features
 - **ActivityPub support**\
@@ -51,12 +49,16 @@ With Misskey's built in drive, you get cloud storage right in your social media,
 
 ## Documentation
 
-Misskey Documentation can be found at [Misskey Hub](https://misskey-hub.net/), some of the links and graphics above also lead to specific portions of it.
+Misskey Documentation can be found at [Misskey Hub](https://misskey-hub.net/docs/), some of the links and graphics above also lead to specific portions of it.
 
-## Sponsors
+## Sponsors of Misskey
 
-<div align="center">
-	<a class="rss3" title="RSS3" href="https://rss3.io/" target="_blank"><img src="https://rss3.mypinata.cloud/ipfs/QmUG6H3Z7D5P511shn7sB4CPmpjH5uZWu4m5mWX7U3Gqbu" alt="RSS3" height="60"></a>
+List of sponsors of Misskey can be found at [Misskey Hub](https://misskey-hub.net/).
+
+## Sponsors of Misskey.io
+
+<div style="display:flex;flex-direction:column;gap:8px 8px;align-items:center;justify-content:center;">
+	<a title="Skeb" href="https://skeb.jp/" target="_blank"><img src="https://media.misskeyusercontent.com/misskey-io/sponsors/skeb.svg" alt="Skeb" width="140"></a>
 </div>
 
 ## Thanks

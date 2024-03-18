@@ -1,5 +1,5 @@
 /*
- * SPDX-FileCopyrightText: syuilo and other misskey contributors
+ * SPDX-FileCopyrightText: syuilo and misskey-project
  * SPDX-License-Identifier: AGPL-3.0-only
  */
 
@@ -17,6 +17,7 @@ export const meta = {
 
 	requireCredential: true,
 	requireRolePolicy: 'canManageCustomEmojis',
+	kind: 'read:admin:emoji',
 
 	res: {
 		type: 'array',
@@ -105,7 +106,7 @@ export default class extends Endpoint<typeof meta, typeof paramDef> { // eslint-
 				.limit(ps.limit)
 				.getMany();
 
-			return this.emojiEntityService.packDetailedMany(emojis);
+			return this.emojiEntityService.packInternalMany(emojis);
 		});
 	}
 }

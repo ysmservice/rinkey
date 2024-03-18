@@ -1,5 +1,5 @@
 <!--
-SPDX-FileCopyrightText: syuilo and other misskey contributors
+SPDX-FileCopyrightText: syuilo and misskey-project
 SPDX-License-Identifier: AGPL-3.0-only
 -->
 
@@ -18,18 +18,13 @@ SPDX-License-Identifier: AGPL-3.0-only
 <script lang="ts" setup>
 import { ref, watch } from 'vue';
 import MkTextarea from '@/components/MkTextarea.vue';
-import MkKeyValue from '@/components/MkKeyValue.vue';
 import MkButton from '@/components/MkButton.vue';
-import MkInfo from '@/components/MkInfo.vue';
-import MkTab from '@/components/MkTab.vue';
 import * as os from '@/os.js';
-import number from '@/filters/number.js';
-import { defaultStore } from '@/store.js';
 import { $i } from '@/account.js';
 import { i18n } from '@/i18n.js';
-import { definePageMetadata } from '@/scripts/page-metadata.js';
+import { misskeyApi } from '@/scripts/misskey-api.js';
 
-const render = (mutedWords) => mutedWords.map(x => {
+const render = (mutedWords?: (string | string[])[]) => mutedWords?.map(x => {
 	if (Array.isArray(x)) {
 		return x.join(' ');
 	} else {
@@ -37,8 +32,7 @@ const render = (mutedWords) => mutedWords.map(x => {
 	}
 }).join('\n');
 
-const tab = ref('soft');
-const mutedWords = ref(render($i!.mutedWords));
+const mutedWords = ref(render($i?.mutedWords));
 const changed = ref(false);
 
 watch(mutedWords, () => {
@@ -46,14 +40,14 @@ watch(mutedWords, () => {
 });
 
 async function save() {
-	const parseMutes = (mutes) => {
-		// split into lines, remove empty lines and unnecessary whitespace
-		let lines = mutes.trim().split('\n').map(line => line.trim()).filter(line => line !== '');
+	const parseMutes = (mutes?: string): (string | string[])[] => {
+		const parsed: (string | string[])[] = [];
+		if (!mutes) return parsed;
 
+		// split into lines, remove empty lines and unnecessary whitespace
 		// check each line if it is a RegExp or not
-		for (let i = 0; i < lines.length; i++) {
-			const line = lines[i];
-			const regexp = line.match(/^\/(.+)\/(.*)$/);
+		for (const [i, line] of mutes.trim().split('\n').map(line => line.trim()).filter(line => line !== '').entries()) {
+			const regexp = RegExp(/^\/(.+)\/(.*)$/).exec(line);
 			if (regexp) {
 				// check that the RegExp is valid
 				try {
@@ -64,20 +58,21 @@ async function save() {
 					os.alert({
 						type: 'error',
 						title: i18n.ts.regexpError,
-						text: i18n.t('regexpErrorDescription', { tab: 'word mute', line: i + 1 }) + '\n' + err.toString(),
+						text: i18n.tsx.regexpErrorDescription({ tab: 'word mute', line: i + 1 }) + '\n' + err.toString(),
 					});
 					// re-throw error so these invalid settings are not saved
 					throw err;
 				}
+				parsed.push(line);
 			} else {
-				lines[i] = line.split(' ');
+				parsed.push(line.split(' '));
 			}
 		}
 
-		return lines;
+		return parsed;
 	};
 
-	let parsed;
+	let parsed: (string | string[])[];
 	try {
 		parsed = parseMutes(mutedWords.value);
 	} catch (err) {
@@ -85,7 +80,7 @@ async function save() {
 		return;
 	}
 
-	await os.api('i/update', {
+	await misskeyApi('i/update', {
 		mutedWords: parsed,
 	});
 

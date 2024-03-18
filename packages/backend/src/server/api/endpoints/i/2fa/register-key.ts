@@ -1,5 +1,5 @@
 /*
- * SPDX-FileCopyrightText: syuilo and other misskey contributors
+ * SPDX-FileCopyrightText: syuilo and misskey-project
  * SPDX-License-Identifier: AGPL-3.0-only
  */
 
@@ -30,10 +30,151 @@ export const meta = {
 			id: '38769596-efe2-4faf-9bec-abbb3f2cd9ba',
 		},
 
+		authenticationFailed: {
+			message: 'Authentication failed.',
+			code: 'AUTHENTICATION_FAILED',
+			id: 'a7628591-668b-47b2-919f-d986b22af06a',
+		},
+
 		twoFactorNotEnabled: {
 			message: '2fa not enabled.',
 			code: 'TWO_FACTOR_NOT_ENABLED',
 			id: 'bf32b864-449b-47b8-974e-f9a5468546f1',
+		},
+	},
+
+	res: {
+		type: 'object',
+		nullable: false,
+		optional: false,
+		properties: {
+			rp: {
+				type: 'object',
+				properties: {
+					id: {
+						type: 'string',
+						optional: true,
+					},
+				},
+			},
+			user: {
+				type: 'object',
+				properties: {
+					id: {
+						type: 'string',
+					},
+					name: {
+						type: 'string',
+					},
+					displayName: {
+						type: 'string',
+					},
+				},
+			},
+			challenge: {
+				type: 'string',
+			},
+			pubKeyCredParams: {
+				type: 'array',
+				items: {
+					type: 'object',
+					properties: {
+						type: {
+							type: 'string',
+						},
+						alg: {
+							type: 'number',
+						},
+					},
+				},
+			},
+			timeout: {
+				type: 'number',
+				nullable: true,
+			},
+			excludeCredentials: {
+				type: 'array',
+				nullable: true,
+				items: {
+					type: 'object',
+					properties: {
+						id: {
+							type: 'string',
+						},
+						type: {
+							type: 'string',
+						},
+						transports: {
+							type: 'array',
+							items: {
+								type: 'string',
+								enum: [
+									'ble',
+									'cable',
+									'hybrid',
+									'internal',
+									'nfc',
+									'smart-card',
+									'usb',
+								],
+							},
+						},
+					},
+				},
+			},
+			authenticatorSelection: {
+				type: 'object',
+				nullable: true,
+				properties: {
+					authenticatorAttachment: {
+						type: 'string',
+						enum: [
+							'cross-platform',
+							'platform',
+						],
+					},
+					requireResidentKey: {
+						type: 'boolean',
+					},
+					userVerification: {
+						type: 'string',
+						enum: [
+							'discouraged',
+							'preferred',
+							'required',
+						],
+					},
+				},
+			},
+			attestation: {
+				type: 'string',
+				nullable: true,
+				enum: [
+					'direct',
+					'enterprise',
+					'indirect',
+					'none',
+					null,
+				],
+			},
+			extensions: {
+				type: 'object',
+				nullable: true,
+				properties: {
+					appid: {
+						type: 'string',
+						nullable: true,
+					},
+					credProps: {
+						type: 'boolean',
+						nullable: true,
+					},
+					hmacCreateSecret: {
+						type: 'boolean',
+						nullable: true,
+					},
+				},
+			},
 		},
 	},
 } as const;
@@ -58,7 +199,6 @@ export default class extends Endpoint<typeof meta, typeof paramDef> {
 		private userAuthService: UserAuthService,
 	) {
 		super(meta, paramDef, async (ps, me) => {
-			const token = ps.token;
 			const profile = await this.userProfilesRepository.findOne({
 				where: {
 					userId: me.id,
@@ -70,24 +210,19 @@ export default class extends Endpoint<typeof meta, typeof paramDef> {
 				throw new ApiError(meta.errors.userNotFound);
 			}
 
-			if (profile.twoFactorEnabled) {
-				if (token == null) {
-					throw new Error('authentication failed');
-				}
-
-				try {
-					await this.userAuthService.twoFactorAuthenticate(profile, token);
-				} catch (e) {
-					throw new Error('authentication failed');
-				}
-			}
-
 			const passwordMatched = await bcrypt.compare(ps.password, profile.password ?? '');
 			if (!passwordMatched) {
 				throw new ApiError(meta.errors.incorrectPassword);
 			}
 
-			if (!profile.twoFactorEnabled) {
+			if (profile.twoFactorEnabled) {
+				const token = ps.token;
+				if (token == null) {
+					throw new ApiError(meta.errors.authenticationFailed);
+				}
+
+				await this.userAuthService.twoFactorAuthenticate(profile, token);
+			} else {
 				throw new ApiError(meta.errors.twoFactorNotEnabled);
 			}
 

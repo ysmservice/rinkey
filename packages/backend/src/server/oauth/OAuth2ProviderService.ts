@@ -1,5 +1,5 @@
 /*
- * SPDX-FileCopyrightText: syuilo and other misskey contributors
+ * SPDX-FileCopyrightText: syuilo and misskey-project
  * SPDX-License-Identifier: AGPL-3.0-only
  */
 
@@ -9,25 +9,38 @@ import { Inject, Injectable } from '@nestjs/common';
 import { JSDOM } from 'jsdom';
 import httpLinkHeader from 'http-link-header';
 import ipaddr from 'ipaddr.js';
-import oauth2orize, { type OAuth2, AuthorizationError, ValidateFunctionArity2, OAuth2Req, MiddlewareRequest } from 'oauth2orize';
+import oauth2orize, {
+	type OAuth2,
+	OAuth2Server,
+	MiddlewareRequest,
+	OAuth2Req,
+	ValidateFunctionArity2,
+	AuthorizationError,
+} from 'oauth2orize';
 import oauth2Pkce from 'oauth2orize-pkce';
+import fastifyCors from '@fastify/cors';
 import fastifyView from '@fastify/view';
 import pug from 'pug';
 import bodyParser from 'body-parser';
 import fastifyExpress from '@fastify/express';
 import { verifyChallenge } from 'pkce-challenge';
 import { mf2 } from 'microformats-parser';
+import { permissions as kinds } from 'misskey-js';
+import * as Redis from 'ioredis';
 import { secureRndstr } from '@/misc/secure-rndstr.js';
 import { HttpRequestService } from '@/core/HttpRequestService.js';
-import { kinds } from '@/misc/api-permissions.js';
 import type { Config } from '@/config.js';
 import { DI } from '@/di-symbols.js';
 import { bindThis } from '@/decorators.js';
-import type { AccessTokensRepository, UsersRepository } from '@/models/_.js';
+import type {
+	AccessTokensRepository,
+	IndieAuthClientsRepository,
+	UserProfilesRepository,
+	UsersRepository,
+} from '@/models/_.js';
 import { IdService } from '@/core/IdService.js';
 import { CacheService } from '@/core/CacheService.js';
 import type { MiLocalUser } from '@/models/User.js';
-import { MemoryKVCache } from '@/misc/cache.js';
 import { LoggerService } from '@/core/LoggerService.js';
 import Logger from '@/logger.js';
 import { StatusError } from '@/misc/status-error.js';
@@ -92,8 +105,8 @@ function validateClientId(raw: string): URL {
 
 interface ClientInformation {
 	id: string;
-	redirectUris: string[];
 	name: string;
+	redirectUris: string[];
 }
 
 // https://indieauth.spec.indieweb.org/#client-information-discovery
@@ -137,8 +150,7 @@ async function discoverClientInformation(logger: Logger, httpRequestService: Htt
 			name: typeof name === 'string' ? name : id,
 		};
 	} catch (err) {
-		console.error(err);
-		logger.error('Error while fetching client information', { err });
+		logger.error('Error while fetching client information', { error: err });
 		if (err instanceof StatusError) {
 			throw new AuthorizationError('Failed to fetch client information', 'invalid_request');
 		} else {
@@ -196,67 +208,65 @@ function getQueryMode(issuerUrl: string): oauth2orize.grant.Options['modes'] {
  * 2. oauth/decision will call load() to retrieve the parameters and then remove()
  */
 class OAuth2Store {
-	#cache = new MemoryKVCache<OAuth2>(1000 * 60 * 5); // expires after 5min
+	constructor(
+		private redisClient: Redis.Redis,
+	) {
+	}
 
-	load(req: OAuth2DecisionRequest, cb: (err: Error | null, txn?: OAuth2) => void): void {
+	async load(req: OAuth2DecisionRequest, cb: (err: Error | null, txn?: OAuth2) => void): Promise<void> {
 		const { transaction_id } = req.body;
 		if (!transaction_id) {
 			cb(new AuthorizationError('Missing transaction ID', 'invalid_request'));
 			return;
 		}
-		const loaded = this.#cache.get(transaction_id);
+		const loaded = await this.redisClient.get(`oauth2:transaction:${transaction_id}`);
 		if (!loaded) {
 			cb(new AuthorizationError('Invalid or expired transaction ID', 'access_denied'));
 			return;
 		}
-		cb(null, loaded);
+		cb(null, JSON.parse(loaded) as OAuth2);
 	}
 
-	store(req: OAuth2DecisionRequest, oauth2: OAuth2, cb: (err: Error | null, transactionID?: string) => void): void {
+	async store(req: OAuth2DecisionRequest, oauth2: OAuth2, cb: (err: Error | null, transactionID?: string) => void): Promise<void> {
 		const transactionId = secureRndstr(128);
-		this.#cache.set(transactionId, oauth2);
+		await this.redisClient.set(`oauth2:transaction:${transactionId}`, JSON.stringify(oauth2), 'EX', 60 * 5);
 		cb(null, transactionId);
 	}
 
 	remove(req: OAuth2DecisionRequest, tid: string, cb: () => void): void {
-		this.#cache.delete(tid);
+		this.redisClient.del(`oauth2:transaction:${tid}`);
 		cb();
 	}
 }
 
 @Injectable()
 export class OAuth2ProviderService {
-	#server = oauth2orize.createServer({
-		store: new OAuth2Store(),
-	});
+	#server: OAuth2Server;
 	#logger: Logger;
 
 	constructor(
 		@Inject(DI.config)
 		private config: Config,
-		private httpRequestService: HttpRequestService,
+		@Inject(DI.redis)
+		private redisClient: Redis.Redis,
 		@Inject(DI.accessTokensRepository)
-		accessTokensRepository: AccessTokensRepository,
-		idService: IdService,
+		private accessTokensRepository: AccessTokensRepository,
+		@Inject(DI.indieAuthClientsRepository)
+		private indieAuthClientsRepository: IndieAuthClientsRepository,
 		@Inject(DI.usersRepository)
 		private usersRepository: UsersRepository,
+		@Inject(DI.userProfilesRepository)
+		private userProfilesRepository: UserProfilesRepository,
+
+		private idService: IdService,
 		private cacheService: CacheService,
-		loggerService: LoggerService,
+		private loggerService: LoggerService,
+		private httpRequestService: HttpRequestService,
 	) {
 		this.#logger = loggerService.getLogger('oauth');
-
-		const grantCodeCache = new MemoryKVCache<{
-			clientId: string,
-			userId: string,
-			redirectUri: string,
-			codeChallenge: string,
-			scopes: string[],
-
-			// fields to prevent multiple code use
-			grantedToken?: string,
-			revoked?: boolean,
-			used?: boolean,
-		}>(1000 * 60 * 5); // expires after 5m
+		this.#server = oauth2orize.createServer({
+			store: new OAuth2Store(redisClient),
+		});
 
 		// https://datatracker.ietf.org/doc/html/draft-ietf-oauth-security-topics
 		// "Authorization servers MUST support PKCE [RFC7636]."
@@ -279,38 +289,39 @@ export class OAuth2ProviderService {
 				this.#logger.info(`Sending authorization code on behalf of user ${user.id} to ${client.id} through ${redirectUri}, with scope: [${areq.scope}]`);
 
 				const code = secureRndstr(128);
-				grantCodeCache.set(code, {
+				await this.redisClient.set(`oauth2:authorization:${code}`, JSON.stringify({
 					clientId: client.id,
 					userId: user.id,
 					redirectUri,
 					codeChallenge: (areq as OAuthParsedRequest).codeChallenge,
 					scopes: areq.scope,
-				});
+				}), 'EX', 60 * 5);
 				return [code];
 			})().then(args => done(null, ...args), err => done(err));
 		}));
 		this.#server.exchange(oauth2orize.exchange.authorizationCode((client, code, redirectUri, body, authInfo, done) => {
 			(async (): Promise<OmitFirstElement<Parameters<typeof done>> | undefined> => {
 				this.#logger.info('Checking the received authorization code for the exchange');
-				const granted = grantCodeCache.get(code);
-				if (!granted) {
+				const grantedJson = await this.redisClient.get(`oauth2:authorization:${code}`);
+				if (!grantedJson) {
 					return;
 				}
+				const granted = JSON.parse(grantedJson);
 
 				// https://datatracker.ietf.org/doc/html/rfc6749.html#section-4.1.2
 				// "If an authorization code is used more than once, the authorization server
 				// MUST deny the request and SHOULD revoke (when possible) all tokens
 				// previously issued based on that authorization code."
-				if (granted.used) {
+				let grantedState = await this.redisClient.get(`oauth2:authorization:${code}:state`);
+				if (grantedState !== null) {
 					this.#logger.info(`Detected multiple code use from ${granted.clientId} for user ${granted.userId}. Revoking the code.`);
-					grantCodeCache.delete(code);
-					granted.revoked = true;
+					await this.redisClient.set(`oauth2:authorization:${code}:state`, 'revoked', 'EX', 60 * 5);
 					if (granted.grantedToken) {
 						await accessTokensRepository.delete({ token: granted.grantedToken });
 					}
 					return;
 				}
-				granted.used = true;
+				await this.redisClient.set(`oauth2:authorization:${code}:state`, 'used', 'EX', 60 * 5);
 
 				// https://datatracker.ietf.org/doc/html/rfc6749.html#section-4.1.3
 				if (body.client_id !== granted.clientId) return;
@@ -334,7 +345,8 @@ export class OAuth2ProviderService {
 					permission: granted.scopes,
 				});
 
-				if (granted.revoked) {
+				grantedState = await this.redisClient.get(`oauth2:authorization:${code}:state`);
+				if (grantedState === 'revoked') {
 					this.#logger.info('Canceling the token as the authorization code was revoked in parallel during the process.');
 					await accessTokensRepository.delete({ token: accessToken });
 					return;
@@ -342,31 +354,34 @@ export class OAuth2ProviderService {
 
 				granted.grantedToken = accessToken;
 				this.#logger.info(`Generated access token for ${granted.clientId} for user ${granted.userId}, with scope: [${granted.scopes}]`);
+				await this.redisClient.set(`oauth2:authorization:${code}`, JSON.stringify(granted), 'EX', 60 * 5);
 
 				return [accessToken, undefined, { scope: granted.scopes.join(' ') }];
 			})().then(args => done(null, ...args ?? []), err => done(err));
 		}));
 	}
 
+	// https://datatracker.ietf.org/doc/html/rfc8414.html
+	// https://indieauth.spec.indieweb.org/#indieauth-server-metadata
+	public generateRFC8414() {
+		return {
+			issuer: this.config.url,
+			authorization_endpoint: new URL('/oauth/authorize', this.config.url),
+			token_endpoint: new URL('/oauth/token', this.config.url),
+			introspection_endpoint: new URL('/oauth/token/introspect', this.config.url),
+			userinfo_endpoint: new URL('/oauth/api/userinfo', this.config.url),
+			scopes_supported: kinds,
+			response_types_supported: ['code'],
+			grant_types_supported: ['authorization_code'],
+			service_documentation: 'https://misskey-hub.net',
+			code_challenge_methods_supported: ['S256'],
+			authorization_response_iss_parameter_supported: true,
+		};
+	}
+
 	@bindThis
 	public async createServer(fastify: FastifyInstance): Promise<void> {
-		// https://datatracker.ietf.org/doc/html/rfc8414.html
-		// https://indieauth.spec.indieweb.org/#indieauth-server-metadata
-		fastify.get('/.well-known/oauth-authorization-server', async (_request, reply) => {
-			reply.send({
-				issuer: this.config.url,
-				authorization_endpoint: new URL('/oauth/authorize', this.config.url),
-				token_endpoint: new URL('/oauth/token', this.config.url),
-				scopes_supported: kinds,
-				response_types_supported: ['code'],
-				grant_types_supported: ['authorization_code'],
-				service_documentation: 'https://misskey-hub.net',
-				code_challenge_methods_supported: ['S256'],
-				authorization_response_iss_parameter_supported: true,
-			});
-		});
-
-		fastify.get('/oauth/authorize', async (request, reply) => {
+		fastify.get('/authorize', async (request, reply) => {
 			const oauth2 = (request.raw as MiddlewareRequest).oauth2;
 			if (!oauth2) {
 				throw new Error('Unexpected lack of authorization information');
@@ -381,8 +396,7 @@ export class OAuth2ProviderService {
 				scope: oauth2.req.scope.join(' '),
 			});
 		});
-		fastify.post('/oauth/decision', async () => { });
-		fastify.post('/oauth/token', async () => { });
+		fastify.post('/decision', async () => { });
 
 		fastify.register(fastifyView, {
 			root: fileURLToPath(new URL('../web/views', import.meta.url)),
@@ -394,7 +408,7 @@ export class OAuth2ProviderService {
 		});
 
 		await fastify.register(fastifyExpress);
-		fastify.use('/oauth/authorize', this.#server.authorize(((areq, done) => {
+		fastify.use('/authorize', this.#server.authorize(((areq, done) => {
 			(async (): Promise<Parameters<typeof done>> => {
 				// This should return client/redirectURI AND the error, or
 				// the handler can't send error to the redirection URI
@@ -416,8 +430,10 @@ export class OAuth2ProviderService {
 					}
 				}
 
+				// Find client information from the database.
+				const registeredClientInfo = await this.indieAuthClientsRepository.findOneBy({ id: clientUrl.href }) as ClientInformation | null;
 				// Find client information from the remote.
-				const clientInfo = await discoverClientInformation(this.#logger, this.httpRequestService, clientUrl.href);
+				const clientInfo = registeredClientInfo ?? await discoverClientInformation(this.#logger, this.httpRequestService, clientUrl.href);
 
 				// Require the redirect URI to be included in an explicit list, per
 				// https://datatracker.ietf.org/doc/html/draft-ietf-oauth-security-topics#section-4.1.3
@@ -426,7 +442,7 @@ export class OAuth2ProviderService {
 				}
 
 				try {
-					const scopes = [...new Set(scope)].filter(s => kinds.includes(s));
+					const scopes = [...new Set(scope)].filter(s => (<readonly string[]>kinds).includes(s));
 					if (!scopes.length) {
 						throw new AuthorizationError('`scope` parameter has no known scope', 'invalid_scope');
 					}
@@ -448,30 +464,24 @@ export class OAuth2ProviderService {
 				return [null, clientInfo, redirectURI];
 			})().then(args => done(...args), err => done(err));
 		}) as ValidateFunctionArity2));
-		fastify.use('/oauth/authorize', this.#server.errorHandler({
+		fastify.use('/authorize', this.#server.errorHandler({
 			mode: 'indirect',
 			modes: getQueryMode(this.config.url),
 		}));
-		fastify.use('/oauth/authorize', this.#server.errorHandler());
+		fastify.use('/authorize', this.#server.errorHandler());
 
-		fastify.use('/oauth/decision', bodyParser.urlencoded({ extended: false }));
-		fastify.use('/oauth/decision', this.#server.decision((req, done) => {
+		fastify.use('/decision', bodyParser.urlencoded({ extended: false }));
+		fastify.use('/decision', this.#server.decision((req, done) => {
 			const { body } = req as OAuth2DecisionRequest;
 			this.#logger.info(`Received the decision. Cancel: ${!!body.cancel}`);
-			req.user = body.login_token;
+			if (!body.cancel) req.user = body.login_token;
 			done(null, undefined);
 		}));
-		fastify.use('/oauth/decision', this.#server.errorHandler());
-
-		// Clients may use JSON or urlencoded
-		fastify.use('/oauth/token', bodyParser.urlencoded({ extended: false }));
-		fastify.use('/oauth/token', bodyParser.json({ strict: true }));
-		fastify.use('/oauth/token', this.#server.token());
-		fastify.use('/oauth/token', this.#server.errorHandler());
+		fastify.use('/decision', this.#server.errorHandler());
 
 		// Return 404 for any unknown paths under /oauth so that clients can know
 		// whether a certain endpoint is supported or not.
-		fastify.all('/oauth/*', async (_request, reply) => {
+		fastify.all('/*', async (_request, reply) => {
 			reply.code(404);
 			reply.send({
 				error: {
@@ -482,5 +492,77 @@ export class OAuth2ProviderService {
 				},
 			});
 		});
+	}
+
+	@bindThis
+	public async createApiServer(fastify: FastifyInstance): Promise<void> {
+		fastify.register(fastifyCors);
+
+		fastify.get('/userinfo', async (request, reply) => {
+			// https://datatracker.ietf.org/doc/html/rfc6750.html#section-2.1 (case sensitive)
+			const token = request.headers.authorization?.startsWith('Bearer ')
+				? request.headers.authorization.slice(7)
+				: null;
+			if (!token) {
+				reply.code(401);
+				return;
+			}
+
+			const accessToken = await this.accessTokensRepository.findOne({ where: { token }, relations: ['user'] });
+			if (!accessToken) {
+				reply.code(401);
+				return;
+			}
+
+			const user = await this.userProfilesRepository.findOneBy({ userId: accessToken.userId });
+
+			reply.code(200);
+			return {
+				sub: accessToken.userId,
+				name: accessToken.user?.name,
+				preferred_username: accessToken.user?.username,
+				profile: accessToken.user ? `${this.config.url}/@${accessToken.user.username}` : undefined,
+				picture: accessToken.user?.avatarUrl,
+				email: user?.email,
+				email_verified: user?.emailVerified,
+				mfa_enabled: user?.twoFactorEnabled,
+				updated_at: Math.floor((accessToken.user?.updatedAt?.getTime() ?? accessToken.user?.createdAt.getTime() ?? 0) / 1000),
+			};
+		});
+	}
+
+	@bindThis
+	public async createTokenServer(fastify: FastifyInstance): Promise<void> {
+		fastify.register(fastifyCors);
+
+		fastify.post('', async () => { });
+
+		fastify.post<{ Body: Record<string, unknown> | undefined }>('/introspect', async (request, reply) => {
+			const token = request.body?.['token'];
+			if (!token || typeof token !== 'string') {
+				reply.code(400);
+				return;
+			}
+
+			const accessToken = await this.accessTokensRepository.findOne({ where: { token }, relations: ['user'] });
+			reply.code(200);
+
+			if (!accessToken) return { active: false };
+			return {
+				active: true,
+				me: accessToken.user ? `${this.config.url}/@${accessToken.user.username}` : undefined,
+				scope: accessToken.permission.join(' '),
+				client_id: accessToken.name,
+				user_id: accessToken.userId,
+				token_type: 'Bearer',
+			};
+		});
+
+		await fastify.register(fastifyExpress);
+		// Clients may use JSON or urlencoded
+		fastify.use('', bodyParser.urlencoded({ extended: false }));
+		fastify.use('', bodyParser.json({ strict: true }));
+		fastify.use('', this.#server.token());
+		fastify.use('', this.#server.errorHandler());
 	}
 }

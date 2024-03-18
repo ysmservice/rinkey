@@ -1,5 +1,5 @@
 /*
- * SPDX-FileCopyrightText: syuilo and other misskey contributors
+ * SPDX-FileCopyrightText: syuilo and misskey-project
  * SPDX-License-Identifier: AGPL-3.0-only
  */
 
@@ -66,7 +66,10 @@ export class CustomEmojiService implements OnApplicationShutdown {
 		license: string | null;
 		isSensitive: boolean;
 		localOnly: boolean;
+		requestedBy: string | null;
+		memo: string | null;
 		roleIdsThatCanBeUsedThisEmojiAsReaction: MiRole['id'][];
+		roleIdsThatCanNotBeUsedThisEmojiAsReaction: MiRole['id'][];
 	}, moderator?: MiUser): Promise<MiEmoji> {
 		const emoji = await this.emojisRepository.insert({
 			id: this.idService.gen(),
@@ -81,7 +84,10 @@ export class CustomEmojiService implements OnApplicationShutdown {
 			license: data.license,
 			isSensitive: data.isSensitive,
 			localOnly: data.localOnly,
+			requestedBy: data.requestedBy,
+			memo: data.memo,
 			roleIdsThatCanBeUsedThisEmojiAsReaction: data.roleIdsThatCanBeUsedThisEmojiAsReaction,
+			roleIdsThatCanNotBeUsedThisEmojiAsReaction: data.roleIdsThatCanNotBeUsedThisEmojiAsReaction,
 		}).then(x => this.emojisRepository.findOneByOrFail(x.identifiers[0]));
 
 		if (data.host == null) {
@@ -111,7 +117,10 @@ export class CustomEmojiService implements OnApplicationShutdown {
 		license?: string | null;
 		isSensitive?: boolean;
 		localOnly?: boolean;
+		requestedBy?: string | null;
+		memo?: string | null;
 		roleIdsThatCanBeUsedThisEmojiAsReaction?: MiRole['id'][];
+		roleIdsThatCanNotBeUsedThisEmojiAsReaction?: MiRole['id'][];
 	}, moderator?: MiUser): Promise<void> {
 		const emoji = await this.emojisRepository.findOneByOrFail({ id: id });
 		const sameNameEmoji = await this.emojisRepository.findOneBy({ name: data.name, host: IsNull() });
@@ -128,7 +137,10 @@ export class CustomEmojiService implements OnApplicationShutdown {
 			originalUrl: data.driveFile != null ? data.driveFile.url : undefined,
 			publicUrl: data.driveFile != null ? (data.driveFile.webpublicUrl ?? data.driveFile.url) : undefined,
 			type: data.driveFile != null ? (data.driveFile.webpublicType ?? data.driveFile.type) : undefined,
+			requestedBy: data.requestedBy ?? undefined,
+			memo: data.memo ?? undefined,
 			roleIdsThatCanBeUsedThisEmojiAsReaction: data.roleIdsThatCanBeUsedThisEmojiAsReaction ?? undefined,
+			roleIdsThatCanNotBeUsedThisEmojiAsReaction: data.roleIdsThatCanNotBeUsedThisEmojiAsReaction ?? undefined,
 		});
 
 		this.localEmojisCache.refresh();
@@ -385,12 +397,17 @@ export class CustomEmojiService implements OnApplicationShutdown {
 	 */
 	@bindThis
 	public checkDuplicate(name: string): Promise<boolean> {
-		return this.emojisRepository.exist({ where: { name, host: IsNull() } });
+		return this.emojisRepository.exists({ where: { name, host: IsNull() } });
 	}
 
 	@bindThis
 	public getEmojiById(id: string): Promise<MiEmoji | null> {
 		return this.emojisRepository.findOneBy({ id });
+	}
+
+	@bindThis
+	public getEmojiByName(name: string): Promise<MiEmoji | null> {
+		return this.emojisRepository.findOneBy({ name, host: IsNull() });
 	}
 
 	@bindThis

@@ -1,5 +1,5 @@
 /*
- * SPDX-FileCopyrightText: syuilo and other misskey contributors
+ * SPDX-FileCopyrightText: syuilo and misskey-project
  * SPDX-License-Identifier: AGPL-3.0-only
  */
 
@@ -52,7 +52,7 @@ export class CleanRemoteFilesProcessorService {
 				break;
 			}
 
-			cursor = files.at(-1)?.id ?? null;
+			cursor = files[files.length - 1].id;
 
 			await Promise.all(files.map(file => this.driveService.deleteFileSync(file, true)));
 

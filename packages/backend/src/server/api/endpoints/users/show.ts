@@ -1,5 +1,5 @@
 /*
- * SPDX-FileCopyrightText: syuilo and other misskey contributors
+ * SPDX-FileCopyrightText: syuilo and misskey-project
  * SPDX-License-Identifier: AGPL-3.0-only
  */
 
@@ -112,12 +112,13 @@ export default class extends Endpoint<typeof meta, typeof paramDef> { // eslint-
 				// リクエストされた通りに並べ替え
 				const _users: MiUser[] = [];
 				for (const id of ps.userIds) {
-					_users.push(users.find(x => x.id === id)!);
+					const user = users.find((u) => u.id === id);
+					if (user) _users.push(user);
 				}
 
-				return await Promise.all(_users.map(u => this.userEntityService.pack(u, me, {
-					detail: true,
-				})));
+				return await this.userEntityService.packMany(_users, me, {
+					schema: 'UserDetailed',
+				});
 			} else {
 				// Lookup user
 				if (typeof ps.host === 'string' && typeof ps.username === 'string') {
@@ -146,7 +147,7 @@ export default class extends Endpoint<typeof meta, typeof paramDef> { // eslint-
 				}
 
 				return await this.userEntityService.pack(user, me, {
-					detail: true,
+					schema: 'UserDetailed',
 				});
 			}
 		});

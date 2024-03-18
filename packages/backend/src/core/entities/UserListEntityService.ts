@@ -1,13 +1,12 @@
 /*
- * SPDX-FileCopyrightText: syuilo and other misskey contributors
+ * SPDX-FileCopyrightText: syuilo and misskey-project
  * SPDX-License-Identifier: AGPL-3.0-only
  */
 
 import { Inject, Injectable } from '@nestjs/common';
 import { DI } from '@/di-symbols.js';
-import type { MiUserListMembership, UserListMembershipsRepository, UserListsRepository } from '@/models/_.js';
+import type { MiUser, MiUserListMembership, UserListMembershipsRepository, UserListsRepository } from '@/models/_.js';
 import type { Packed } from '@/misc/json-schema.js';
-import type { } from '@/models/Blocking.js';
 import type { MiUserList } from '@/models/UserList.js';
 import { bindThis } from '@/decorators.js';
 import { IdService } from '@/core/IdService.js';
@@ -47,16 +46,27 @@ export class UserListEntityService {
 	}
 
 	@bindThis
+	public async packMemberships(
+		src: MiUserListMembership,
+		me: { id: MiUser['id'] } | null | undefined,
+	): Promise<Packed<'UserListMembership'>> {
+		return {
+			id: src.id,
+			createdAt: this.idService.parse(src.id).date.toISOString(),
+			userId: src.userId,
+			user: await this.userEntityService.pack(src.userId, me),
+			withReplies: src.withReplies,
+		};
+	}
+
+	@bindThis
 	public async packMembershipsMany(
 		memberships: MiUserListMembership[],
-	) {
-		return Promise.all(memberships.map(async x => ({
-			id: x.id,
-			createdAt: this.idService.parse(x.id).date.toISOString(),
-			userId: x.userId,
-			user: await this.userEntityService.pack(x.userId),
-			withReplies: x.withReplies,
-		})));
+		me: { id: MiUser['id'] } | null | undefined,
+	): Promise<Packed<'UserListMembership'>[]> {
+		return (await Promise.allSettled(memberships.map(u => this.packMemberships(u, me))))
+			.filter(result => result.status === 'fulfilled')
+			.map(result => (result as PromiseFulfilledResult<Packed<'UserListMembership'>>).value);
 	}
 }
 

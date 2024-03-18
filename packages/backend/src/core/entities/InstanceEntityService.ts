@@ -1,5 +1,5 @@
 /*
- * SPDX-FileCopyrightText: syuilo and other misskey contributors
+ * SPDX-FileCopyrightText: syuilo and misskey-project
  * SPDX-License-Identifier: AGPL-3.0-only
  */
 
@@ -8,12 +8,15 @@ import type { Packed } from '@/misc/json-schema.js';
 import type { MiInstance } from '@/models/Instance.js';
 import { MetaService } from '@/core/MetaService.js';
 import { bindThis } from '@/decorators.js';
-import { UtilityService } from '../UtilityService.js';
+import { UtilityService } from '@/core/UtilityService.js';
+import { RoleService } from '@/core/RoleService.js';
+import { MiUser } from '@/models/User.js';
 
 @Injectable()
 export class InstanceEntityService {
 	constructor(
 		private metaService: MetaService,
+		private roleService: RoleService,
 
 		private utilityService: UtilityService,
 	) {
@@ -22,8 +25,11 @@ export class InstanceEntityService {
 	@bindThis
 	public async pack(
 		instance: MiInstance,
+		me: { id: MiUser['id']; } | null | undefined,
 	): Promise<Packed<'FederationInstance'>> {
 		const meta = await this.metaService.fetch();
+		const iAmModerator = me ? await this.roleService.isModerator(me as MiUser) : false;
+
 		return {
 			id: instance.id,
 			firstRetrievedAt: instance.firstRetrievedAt.toISOString(),
@@ -43,19 +49,23 @@ export class InstanceEntityService {
 			maintainerName: instance.maintainerName,
 			maintainerEmail: instance.maintainerEmail,
 			isSilenced: this.utilityService.isSilencedHost(meta.silencedHosts, instance.host),
+			isSensitiveMedia: this.utilityService.isSensitiveMediaHost(meta.sensitiveMediaHosts, instance.host),
 			iconUrl: instance.iconUrl,
 			faviconUrl: instance.faviconUrl,
 			themeColor: instance.themeColor,
 			infoUpdatedAt: instance.infoUpdatedAt ? instance.infoUpdatedAt.toISOString() : null,
 			latestRequestReceivedAt: instance.latestRequestReceivedAt ? instance.latestRequestReceivedAt.toISOString() : null,
+			moderationNote: iAmModerator ? instance.moderationNote : null,
 		};
 	}
 
 	@bindThis
-	public packMany(
+	public async packMany(
 		instances: MiInstance[],
-	) {
-		return Promise.all(instances.map(x => this.pack(x)));
+		me: { id: MiUser['id'] } | null | undefined,
+	) : Promise<Packed<'FederationInstance'>[]> {
+		return (await Promise.allSettled(instances.map(x => this.pack(x, me))))
+			.filter(result => result.status === 'fulfilled')
+			.map(result => (result as PromiseFulfilledResult<Packed<'FederationInstance'>>).value);
 	}
 }
-

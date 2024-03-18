@@ -1,5 +1,5 @@
 /*
- * SPDX-FileCopyrightText: syuilo and other misskey contributors
+ * SPDX-FileCopyrightText: syuilo and misskey-project
  * SPDX-License-Identifier: AGPL-3.0-only
  */
 
@@ -9,12 +9,12 @@ import { isUserRelated } from '@/misc/is-user-related.js';
 import type { Packed } from '@/misc/json-schema.js';
 import { NoteEntityService } from '@/core/entities/NoteEntityService.js';
 import { bindThis } from '@/decorators.js';
-import Channel from '../channel.js';
+import Channel, { type MiChannelService } from '../channel.js';
 
 class HashtagChannel extends Channel {
 	public readonly chName = 'hashtag';
-	public static shouldShare = false;
-	public static requireCredential = false;
+	public static readonly shouldShare = false;
+	public static readonly requireCredential = false as const;
 	private q: string[][];
 
 	constructor(
@@ -43,6 +43,14 @@ class HashtagChannel extends Channel {
 		const matched = this.q.some(tags => tags.every(tag => noteTags.includes(normalizeForSearch(tag))));
 		if (!matched) return;
 
+		if (note.reply) {
+			const reply = note.reply;
+			// 自分のフォローしていないユーザーの visibility: followers な投稿への返信は弾く
+			if (reply.visibility === 'followers' && !Object.hasOwn(this.following, reply.userId)) return;
+			// 自分の見ることができないユーザーの visibility: specified な投稿への返信は弾く
+			if (reply.visibility === 'specified' && !reply.visibleUserIds!.includes(this.user!.id)) return;
+		}
+
 		// 流れてきたNoteがミュートしているユーザーが関わるものだったら無視する
 		if (isUserRelated(note, this.userIdsWhoMeMuting)) return;
 		// 流れてきたNoteがブロックされているユーザーが関わるものだったら無視する
@@ -70,9 +78,10 @@ class HashtagChannel extends Channel {
 }
 
 @Injectable()
-export class HashtagChannelService {
+export class HashtagChannelService implements MiChannelService<false> {
 	public readonly shouldShare = HashtagChannel.shouldShare;
 	public readonly requireCredential = HashtagChannel.requireCredential;
+	public readonly kind = HashtagChannel.kind;
 
 	constructor(
 		private noteEntityService: NoteEntityService,

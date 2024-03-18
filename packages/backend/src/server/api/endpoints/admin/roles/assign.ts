@@ -1,5 +1,5 @@
 /*
- * SPDX-FileCopyrightText: syuilo and other misskey contributors
+ * SPDX-FileCopyrightText: syuilo and misskey-project
  * SPDX-License-Identifier: AGPL-3.0-only
  */
 
@@ -15,6 +15,7 @@ export const meta = {
 
 	requireCredential: true,
 	requireModerator: true,
+	kind: 'write:admin:roles',
 
 	errors: {
 		noSuchRole: {
@@ -27,6 +28,12 @@ export const meta = {
 			message: 'No such user.',
 			code: 'NO_SUCH_USER',
 			id: '558ea170-f653-4700-94d0-5a818371d0df',
+		},
+
+		alreadyAssigned: {
+			message: 'User is already assigned to this role.',
+			code: 'ALREADY_ASSIGNED',
+			id: '67d8689c-25c6-435f-8ced-631e4b81fce1',
 		},
 
 		accessDenied: {

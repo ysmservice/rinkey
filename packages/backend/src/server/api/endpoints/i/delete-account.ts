@@ -1,5 +1,5 @@
 /*
- * SPDX-FileCopyrightText: syuilo and other misskey contributors
+ * SPDX-FileCopyrightText: syuilo and misskey-project
  * SPDX-License-Identifier: AGPL-3.0-only
  */
 
@@ -10,11 +10,26 @@ import { Endpoint } from '@/server/api/endpoint-base.js';
 import { DeleteAccountService } from '@/core/DeleteAccountService.js';
 import { DI } from '@/di-symbols.js';
 import { UserAuthService } from '@/core/UserAuthService.js';
+import { ApiError } from '@/server/api/error.js';
 
 export const meta = {
 	requireCredential: true,
 
 	secure: true,
+
+	errors: {
+		incorrectPassword: {
+			message: 'Incorrect password.',
+			code: 'INCORRECT_PASSWORD',
+			id: '44326b04-08ea-4525-b01c-98cc117bdd2a',
+		},
+
+		authenticationFailed: {
+			message: 'Authentication failed.',
+			code: 'AUTHENTICATION_FAILED',
+			id: 'ea791cff-63e7-4b2a-92fc-646ab641794e',
+		},
+	},
 } as const;
 
 export const paramDef = {
@@ -39,20 +54,7 @@ export default class extends Endpoint<typeof meta, typeof paramDef> { // eslint-
 		private deleteAccountService: DeleteAccountService,
 	) {
 		super(meta, paramDef, async (ps, me) => {
-			const token = ps.token;
 			const profile = await this.userProfilesRepository.findOneByOrFail({ userId: me.id });
-
-			if (profile.twoFactorEnabled) {
-				if (token == null) {
-					throw new Error('authentication failed');
-				}
-
-				try {
-					await this.userAuthService.twoFactorAuthenticate(profile, token);
-				} catch (e) {
-					throw new Error('authentication failed');
-				}
-			}
 
 			const userDetailed = await this.usersRepository.findOneByOrFail({ id: me.id });
 			if (userDetailed.isDeleted) {
@@ -61,10 +63,19 @@ export default class extends Endpoint<typeof meta, typeof paramDef> { // eslint-
 
 			const passwordMatched = await bcrypt.compare(ps.password, profile.password!);
 			if (!passwordMatched) {
-				throw new Error('incorrect password');
+				throw new ApiError(meta.errors.incorrectPassword);
 			}
 
-			await this.deleteAccountService.deleteAccount(me);
+			if (profile.twoFactorEnabled) {
+				const token = ps.token;
+				if (token == null) {
+					throw new ApiError(meta.errors.authenticationFailed);
+				}
+
+				await this.userAuthService.twoFactorAuthenticate(profile, token);
+			}
+
+			await this.deleteAccountService.deleteAccount(me, false, me);
 		});
 	}
 }

@@ -1,5 +1,5 @@
 /*
- * SPDX-FileCopyrightText: syuilo and other misskey contributors
+ * SPDX-FileCopyrightText: syuilo and misskey-project
  * SPDX-License-Identifier: AGPL-3.0-only
  */
 
@@ -7,6 +7,7 @@ import type { Antenna } from '@/server/api/endpoints/i/import-antennas.js';
 import type { MiDriveFile } from '@/models/DriveFile.js';
 import type { MiNote } from '@/models/Note.js';
 import type { MiUser } from '@/models/User.js';
+import type { MiAbuseUserReport } from '@/models/AbuseUserReport.js';
 import type { MiWebhook } from '@/models/Webhook.js';
 import type { IActivity } from '@/core/activitypub/type.js';
 import type httpSignature from '@peertube/http-signature';
@@ -15,7 +16,9 @@ export type DeliverJobData = {
 	/** Actor */
 	user: ThinUser;
 	/** Activity */
-	content: unknown;
+	content: string;
+	/** Digest header */
+	digest: string;
 	/** inbox URL to deliver */
 	to: string;
 	/** whether it is sharedInbox */
@@ -23,6 +26,7 @@ export type DeliverJobData = {
 };
 
 export type InboxJobData = {
+	user?: ThinUser;
 	activity: IActivity;
 	signature: httpSignature.IParsedSignature;
 };
@@ -75,6 +79,8 @@ export type DBExportAntennasData = {
 export type DbUserDeleteJobData = {
 	user: ThinUser;
 	soft?: boolean;
+	force?: boolean;
+	onlyFiles?: boolean;
 };
 
 export type DbUserImportJobData = {
@@ -93,6 +99,8 @@ export type DbUserImportToDbJobData = {
 	target: string;
 	withReplies?: boolean;
 };
+
+export type DbAbuseReportJobData = MiAbuseUserReport;
 
 export type ObjectStorageJobData = ObjectStorageFileJobData | Record<string, unknown>;
 

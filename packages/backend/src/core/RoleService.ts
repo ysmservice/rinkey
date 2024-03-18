@@ -1,13 +1,21 @@
 /*
- * SPDX-FileCopyrightText: syuilo and other misskey contributors
+ * SPDX-FileCopyrightText: syuilo and misskey-project
  * SPDX-License-Identifier: AGPL-3.0-only
  */
 
 import { Inject, Injectable } from '@nestjs/common';
 import * as Redis from 'ioredis';
 import { In } from 'typeorm';
-import type { MiRole, MiRoleAssignment, RoleAssignmentsRepository, RolesRepository, UsersRepository } from '@/models/_.js';
+import { ModuleRef } from '@nestjs/core';
+import type {
+	MiRole,
+	MiRoleAssignment,
+	RoleAssignmentsRepository,
+	RolesRepository,
+	UsersRepository,
+} from '@/models/_.js';
 import { MemoryKVCache, MemorySingleCache } from '@/misc/cache.js';
+import { IdentifiableError } from '@/misc/identifiable-error.js';
 import type { MiUser } from '@/models/User.js';
 import { DI } from '@/di-symbols.js';
 import { bindThis } from '@/decorators.js';
@@ -16,17 +24,26 @@ import { CacheService } from '@/core/CacheService.js';
 import type { RoleCondFormulaValue } from '@/models/Role.js';
 import { UserEntityService } from '@/core/entities/UserEntityService.js';
 import type { GlobalEvents } from '@/core/GlobalEventService.js';
-import { IdService } from '@/core/IdService.js';
 import { GlobalEventService } from '@/core/GlobalEventService.js';
+import { IdService } from '@/core/IdService.js';
 import { ModerationLogService } from '@/core/ModerationLogService.js';
 import type { Packed } from '@/misc/json-schema.js';
-import { FunoutTimelineService } from '@/core/FunoutTimelineService.js';
-import type { OnApplicationShutdown } from '@nestjs/common';
+import { FanoutTimelineService } from '@/core/FanoutTimelineService.js';
+import { NotificationService } from '@/core/NotificationService.js';
+import type { OnApplicationShutdown, OnModuleInit } from '@nestjs/common';
 
 export type RolePolicies = {
 	gtlAvailable: boolean;
 	ltlAvailable: boolean;
 	canPublicNote: boolean;
+	canInitiateConversation: boolean;
+	canCreateContent: boolean;
+	canUpdateContent: boolean;
+	canDeleteContent: boolean;
+	canPurgeAccount: boolean;
+	canUpdateAvatar: boolean;
+	canUpdateBanner: boolean;
+	mentionLimit: number;
 	canInvite: boolean;
 	inviteLimit: number;
 	inviteLimitCycle: number;
@@ -35,11 +52,14 @@ export type RolePolicies = {
 	canManageAvatarDecorations: boolean;
 	canSearchNotes: boolean;
 	canUseTranslator: boolean;
+	canUseDriveFileInSoundSettings: boolean;
 	canHideAds: boolean;
 	driveCapacityMb: number;
 	alwaysMarkNsfw: boolean;
+	skipNsfwDetection: boolean;
 	pinLimit: number;
 	antennaLimit: number;
+	antennaNotesLimit: number;
 	wordMuteLimit: number;
 	webhookLimit: number;
 	clipLimit: number;
@@ -47,12 +67,21 @@ export type RolePolicies = {
 	userListLimit: number;
 	userEachUserListsLimit: number;
 	rateLimitFactor: number;
+	avatarDecorationLimit: number;
 };
 
 export const DEFAULT_POLICIES: RolePolicies = {
 	gtlAvailable: true,
 	ltlAvailable: true,
 	canPublicNote: true,
+	canInitiateConversation: true,
+	canCreateContent: true,
+	canUpdateContent: true,
+	canDeleteContent: true,
+	canPurgeAccount: true,
+	canUpdateAvatar: true,
+	canUpdateBanner: true,
+	mentionLimit: 20,
 	canInvite: false,
 	inviteLimit: 0,
 	inviteLimitCycle: 60 * 24 * 7,
@@ -61,11 +90,14 @@ export const DEFAULT_POLICIES: RolePolicies = {
 	canManageAvatarDecorations: false,
 	canSearchNotes: false,
 	canUseTranslator: true,
+	canUseDriveFileInSoundSettings: false,
 	canHideAds: false,
 	driveCapacityMb: 100,
 	alwaysMarkNsfw: false,
+	skipNsfwDetection: false,
 	pinLimit: 5,
 	antennaLimit: 5,
+	antennaNotesLimit: 200,
 	wordMuteLimit: 200,
 	webhookLimit: 3,
 	clipLimit: 10,
@@ -73,17 +105,18 @@ export const DEFAULT_POLICIES: RolePolicies = {
 	userListLimit: 10,
 	userEachUserListsLimit: 50,
 	rateLimitFactor: 1,
+	avatarDecorationLimit: 1,
 };
 
 @Injectable()
-export class RoleService implements OnApplicationShutdown {
+export class RoleService implements OnApplicationShutdown, OnModuleInit {
 	private rolesCache: MemorySingleCache<MiRole[]>;
 	private roleAssignmentByUserIdCache: MemoryKVCache<MiRoleAssignment[]>;
-
-	public static AlreadyAssignedError = class extends Error {};
-	public static NotAssignedError = class extends Error {};
+	private notificationService: NotificationService;
 
 	constructor(
+		private moduleRef: ModuleRef,
+
 		@Inject(DI.redis)
 		private redisClient: Redis.Redis,
 
@@ -108,7 +141,7 @@ export class RoleService implements OnApplicationShutdown {
 		private globalEventService: GlobalEventService,
 		private idService: IdService,
 		private moderationLogService: ModerationLogService,
-		private funoutTimelineService: FunoutTimelineService,
+		private fanoutTimelineService: FanoutTimelineService,
 	) {
 		//this.onMessage = this.onMessage.bind(this);
 
@@ -116,6 +149,10 @@ export class RoleService implements OnApplicationShutdown {
 		this.roleAssignmentByUserIdCache = new MemoryKVCache<MiRoleAssignment[]>(1000 * 60 * 60 * 1);
 
 		this.redisForSub.on('message', this.onMessage);
+	}
+
+	async onModuleInit() {
+		this.notificationService = this.moduleRef.get(NotificationService.name);
 	}
 
 	@bindThis
@@ -130,6 +167,7 @@ export class RoleService implements OnApplicationShutdown {
 					if (cached) {
 						cached.push({
 							...body,
+							createdAt: new Date(body.createdAt),
 							updatedAt: new Date(body.updatedAt),
 							lastUsedAt: new Date(body.lastUsedAt),
 						});
@@ -143,6 +181,7 @@ export class RoleService implements OnApplicationShutdown {
 						if (i > -1) {
 							cached[i] = {
 								...body,
+								createdAt: new Date(body.createdAt),
 								updatedAt: new Date(body.updatedAt),
 								lastUsedAt: new Date(body.lastUsedAt),
 							};
@@ -160,9 +199,12 @@ export class RoleService implements OnApplicationShutdown {
 				case 'userRoleAssigned': {
 					const cached = this.roleAssignmentByUserIdCache.get(body.userId);
 					if (cached) {
-						cached.push({
+						cached.push({ // TODO: このあたりのデシリアライズ処理は各modelファイル内に関数としてexportしたい
 							...body,
+							createdAt: new Date(body.createdAt),
 							expiresAt: body.expiresAt ? new Date(body.expiresAt) : null,
+							user: null, // joinなカラムは通常取ってこないので
+							role: null, // joinなカラムは通常取ってこないので
 						});
 					}
 					break;
@@ -181,17 +223,20 @@ export class RoleService implements OnApplicationShutdown {
 	}
 
 	@bindThis
-	private evalCond(user: MiUser, value: RoleCondFormulaValue): boolean {
+	private evalCond(user: MiUser, roles: MiRole[], value: RoleCondFormulaValue): boolean {
 		try {
 			switch (value.type) {
 				case 'and': {
-					return value.values.every(v => this.evalCond(user, v));
+					return value.values.every(v => this.evalCond(user, roles, v));
 				}
 				case 'or': {
-					return value.values.some(v => this.evalCond(user, v));
+					return value.values.some(v => this.evalCond(user, roles, v));
 				}
 				case 'not': {
-					return !this.evalCond(user, value.value);
+					return !this.evalCond(user, roles, value.value);
+				}
+				case 'roleAssignedTo': {
+					return roles.some(r => r.id === value.roleId);
 				}
 				case 'isLocal': {
 					return this.userEntityService.isLocalUser(user);
@@ -253,7 +298,7 @@ export class RoleService implements OnApplicationShutdown {
 		const assigns = await this.getUserAssigns(userId);
 		const assignedRoles = roles.filter(r => assigns.map(x => x.roleId).includes(r.id));
 		const user = roles.some(r => r.target === 'conditional') ? await this.cacheService.findUserById(userId) : null;
-		const matchedCondRoles = roles.filter(r => r.target === 'conditional' && this.evalCond(user!, r.condFormula));
+		const matchedCondRoles = roles.filter(r => r.target === 'conditional' && this.evalCond(user!, assignedRoles, r.condFormula));
 		return [...assignedRoles, ...matchedCondRoles];
 	}
 
@@ -266,13 +311,13 @@ export class RoleService implements OnApplicationShutdown {
 		let assigns = await this.roleAssignmentByUserIdCache.fetch(userId, () => this.roleAssignmentsRepository.findBy({ userId }));
 		// 期限切れのロールを除外
 		assigns = assigns.filter(a => a.expiresAt == null || (a.expiresAt.getTime() > now));
-		const assignedRoleIds = assigns.map(x => x.roleId);
 		const roles = await this.rolesCache.fetch(() => this.rolesRepository.findBy({}));
-		const assignedBadgeRoles = roles.filter(r => r.asBadge && assignedRoleIds.includes(r.id));
+		const assignedRoles = roles.filter(r => assigns.map(x => x.roleId).includes(r.id));
+		const assignedBadgeRoles = assignedRoles.filter(r => r.asBadge);
 		const badgeCondRoles = roles.filter(r => r.asBadge && (r.target === 'conditional'));
 		if (badgeCondRoles.length > 0) {
 			const user = roles.some(r => r.target === 'conditional') ? await this.cacheService.findUserById(userId) : null;
-			const matchedBadgeCondRoles = badgeCondRoles.filter(r => this.evalCond(user!, r.condFormula));
+			const matchedBadgeCondRoles = badgeCondRoles.filter(r => this.evalCond(user!, assignedRoles, r.condFormula));
 			return [...assignedBadgeRoles, ...matchedBadgeCondRoles];
 		} else {
 			return assignedBadgeRoles;
@@ -306,6 +351,14 @@ export class RoleService implements OnApplicationShutdown {
 			gtlAvailable: calc('gtlAvailable', vs => vs.some(v => v === true)),
 			ltlAvailable: calc('ltlAvailable', vs => vs.some(v => v === true)),
 			canPublicNote: calc('canPublicNote', vs => vs.some(v => v === true)),
+			canInitiateConversation: calc('canInitiateConversation', vs => vs.some(v => v === true)),
+			canCreateContent: calc('canCreateContent', vs => vs.some(v => v === true)),
+			canUpdateContent: calc('canUpdateContent', vs => vs.some(v => v === true)),
+			canDeleteContent: calc('canDeleteContent', vs => vs.some(v => v === true)),
+			canPurgeAccount: calc('canPurgeAccount', vs => vs.some(v => v === true)),
+			canUpdateAvatar: calc('canUpdateAvatar', vs => vs.some(v => v === true)),
+			canUpdateBanner: calc('canUpdateBanner', vs => vs.some(v => v === true)),
+			mentionLimit: calc('mentionLimit', vs => Math.max(...vs)),
 			canInvite: calc('canInvite', vs => vs.some(v => v === true)),
 			inviteLimit: calc('inviteLimit', vs => Math.max(...vs)),
 			inviteLimitCycle: calc('inviteLimitCycle', vs => Math.max(...vs)),
@@ -314,11 +367,14 @@ export class RoleService implements OnApplicationShutdown {
 			canManageAvatarDecorations: calc('canManageAvatarDecorations', vs => vs.some(v => v === true)),
 			canSearchNotes: calc('canSearchNotes', vs => vs.some(v => v === true)),
 			canUseTranslator: calc('canUseTranslator', vs => vs.some(v => v === true)),
+			canUseDriveFileInSoundSettings: calc('canUseDriveFileInSoundSettings', vs => vs.some(v => v === true)),
 			canHideAds: calc('canHideAds', vs => vs.some(v => v === true)),
 			driveCapacityMb: calc('driveCapacityMb', vs => Math.max(...vs)),
 			alwaysMarkNsfw: calc('alwaysMarkNsfw', vs => vs.some(v => v === true)),
+			skipNsfwDetection: calc('skipNsfwDetection', vs => vs.some(v => v === true)),
 			pinLimit: calc('pinLimit', vs => Math.max(...vs)),
 			antennaLimit: calc('antennaLimit', vs => Math.max(...vs)),
+			antennaNotesLimit: calc('antennaNotesLimit', vs => Math.max(...vs)),
 			wordMuteLimit: calc('wordMuteLimit', vs => Math.max(...vs)),
 			webhookLimit: calc('webhookLimit', vs => Math.max(...vs)),
 			clipLimit: calc('clipLimit', vs => Math.max(...vs)),
@@ -326,6 +382,7 @@ export class RoleService implements OnApplicationShutdown {
 			userListLimit: calc('userListLimit', vs => Math.max(...vs)),
 			userEachUserListsLimit: calc('userEachUserListsLimit', vs => Math.max(...vs)),
 			rateLimitFactor: calc('rateLimitFactor', vs => Math.max(...vs)),
+			avatarDecorationLimit: calc('avatarDecorationLimit', vs => Math.max(...vs)),
 		};
 	}
 
@@ -395,34 +452,45 @@ export class RoleService implements OnApplicationShutdown {
 
 		const role = await this.rolesRepository.findOneByOrFail({ id: roleId });
 
-		const existing = await this.roleAssignmentsRepository.findOneBy({
+		let existing = await this.roleAssignmentsRepository.findOneBy({
 			roleId: roleId,
 			userId: userId,
 		});
 
-		if (existing) {
-			if (existing.expiresAt && (existing.expiresAt.getTime() < now)) {
-				await this.roleAssignmentsRepository.delete({
-					roleId: roleId,
-					userId: userId,
-				});
-			} else {
-				throw new RoleService.AlreadyAssignedError();
-			}
+		if (existing?.expiresAt && (existing.expiresAt.getTime() < now)) {
+			await this.roleAssignmentsRepository.delete({
+				roleId: roleId,
+				userId: userId,
+			});
+			existing = null;
 		}
 
-		const created = await this.roleAssignmentsRepository.insert({
-			id: this.idService.gen(now),
-			expiresAt: expiresAt,
-			roleId: roleId,
-			userId: userId,
-		}).then(x => this.roleAssignmentsRepository.findOneByOrFail(x.identifiers[0]));
+		if (!existing) {
+			const created = await this.roleAssignmentsRepository.insert({
+				id: this.idService.gen(now),
+				expiresAt: expiresAt,
+				roleId: roleId,
+				userId: userId,
+			}).then(x => this.roleAssignmentsRepository.findOneByOrFail(x.identifiers[0]));
+
+			this.globalEventService.publishInternalEvent('userRoleAssigned', created);
+
+			if (role.isPublic) {
+				this.notificationService.createNotification(userId, 'roleAssigned', {
+					roleId: roleId,
+				});
+			}
+		} else if (existing.expiresAt !== expiresAt) {
+			await this.roleAssignmentsRepository.update(existing.id, {
+				expiresAt: expiresAt,
+			});
+		} else {
+			throw new IdentifiableError('67d8689c-25c6-435f-8ced-631e4b81fce1', 'User is already assigned to this role.');
+		}
 
 		this.rolesRepository.update(roleId, {
 			lastUsedAt: new Date(),
 		});
-
-		this.globalEventService.publishInternalEvent('userRoleAssigned', created);
 
 		if (moderator) {
 			const user = await this.usersRepository.findOneByOrFail({ id: userId });
@@ -441,15 +509,17 @@ export class RoleService implements OnApplicationShutdown {
 	public async unassign(userId: MiUser['id'], roleId: MiRole['id'], moderator?: MiUser): Promise<void> {
 		const now = new Date();
 
-		const existing = await this.roleAssignmentsRepository.findOneBy({ roleId, userId });
-		if (existing == null) {
-			throw new RoleService.NotAssignedError();
-		} else if (existing.expiresAt && (existing.expiresAt.getTime() < now.getTime())) {
+		let existing = await this.roleAssignmentsRepository.findOneBy({ roleId, userId });
+		if (existing?.expiresAt && (existing.expiresAt.getTime() < now.getTime())) {
 			await this.roleAssignmentsRepository.delete({
 				roleId: roleId,
 				userId: userId,
 			});
-			throw new RoleService.NotAssignedError();
+			existing = null;
+		}
+
+		if (!existing) {
+			throw new IdentifiableError('b9060ac7-5c94-4da4-9f55-2047c953df44', 'User was not assigned to this role.');
 		}
 
 		await this.roleAssignmentsRepository.delete(existing.id);
@@ -482,7 +552,7 @@ export class RoleService implements OnApplicationShutdown {
 		const redisPipeline = this.redisForTimelines.pipeline();
 
 		for (const role of roles) {
-			this.funoutTimelineService.push(`roleTimeline:${role.id}`, note.id, 1000, redisPipeline);
+			this.fanoutTimelineService.push(`roleTimeline:${role.id}`, note.id, 1000, redisPipeline);
 			this.globalEventService.publishRoleTimelineStream(role.id, 'note', note);
 		}
 

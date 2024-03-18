@@ -1,5 +1,5 @@
 /*
- * SPDX-FileCopyrightText: syuilo and other misskey contributors
+ * SPDX-FileCopyrightText: syuilo and misskey-project
  * SPDX-License-Identifier: AGPL-3.0-only
  */
 
@@ -48,14 +48,15 @@ export default class extends Endpoint<typeof meta, typeof paramDef> { // eslint-
 		private queryService: QueryService,
 	) {
 		super(meta, paramDef, async (ps, me) => {
-			const query = this.queryService.makePaginationQuery(this.channelFollowingsRepository.createQueryBuilder(), ps.sinceId, ps.untilId)
-				.andWhere({ followerId: me.id });
+			const query = this.queryService.makePaginationQuery(this.channelFollowingsRepository.createQueryBuilder('followings'), ps.sinceId, ps.untilId)
+				.andWhere('followings.followerId = :meId', { meId: me.id })
+				.innerJoinAndSelect('followings.followee', 'channel');
 
 			const followings = await query
 				.limit(ps.limit)
 				.getMany();
 
-			return await Promise.all(followings.map(x => this.channelEntityService.pack(x.followeeId, me)));
+			return await this.channelEntityService.packMany(followings.map(x => x.followee!), me);
 		});
 	}
 }

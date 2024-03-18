@@ -1,5 +1,5 @@
 /*
- * SPDX-FileCopyrightText: syuilo and other misskey contributors
+ * SPDX-FileCopyrightText: syuilo and misskey-project
  * SPDX-License-Identifier: AGPL-3.0-only
  */
 
@@ -16,6 +16,7 @@ export const meta = {
 
 	requireCredential: true,
 	requireRolePolicy: 'canManageCustomEmojis',
+	kind: 'write:admin:emoji',
 
 	errors: {
 		noSuchFile: {
@@ -28,6 +29,11 @@ export const meta = {
 			code: 'DUPLICATE_NAME',
 			id: 'f7a3462c-4e6e-4069-8421-b9bd4f4c3975',
 		},
+	},
+
+	res: {
+		type: 'object',
+		ref: 'EmojiDetailed',
 	},
 } as const;
 
@@ -47,8 +53,15 @@ export const paramDef = {
 		license: { type: 'string', nullable: true },
 		isSensitive: { type: 'boolean' },
 		localOnly: { type: 'boolean' },
+		requestedBy: { type: 'string', nullable: true },
+		memo: { type: 'string', nullable: true },
 		roleIdsThatCanBeUsedThisEmojiAsReaction: { type: 'array', items: {
 			type: 'string',
+			format: 'misskey:id',
+		} },
+		roleIdsThatCanNotBeUsedThisEmojiAsReaction: { type: 'array', items: {
+			type: 'string',
+			format: 'misskey:id',
 		} },
 	},
 	required: ['name', 'fileId'],
@@ -81,7 +94,10 @@ export default class extends Endpoint<typeof meta, typeof paramDef> { // eslint-
 				license: ps.license ?? null,
 				isSensitive: ps.isSensitive ?? false,
 				localOnly: ps.localOnly ?? false,
+				requestedBy: ps.requestedBy ?? null,
+				memo: ps.memo ?? null,
 				roleIdsThatCanBeUsedThisEmojiAsReaction: ps.roleIdsThatCanBeUsedThisEmojiAsReaction ?? [],
+				roleIdsThatCanNotBeUsedThisEmojiAsReaction: ps.roleIdsThatCanNotBeUsedThisEmojiAsReaction ?? [],
 			}, me);
 
 			return this.emojiEntityService.packDetailed(emoji);

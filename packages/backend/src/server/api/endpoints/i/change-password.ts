@@ -1,5 +1,5 @@
 /*
- * SPDX-FileCopyrightText: syuilo and other misskey contributors
+ * SPDX-FileCopyrightText: syuilo and misskey-project
  * SPDX-License-Identifier: AGPL-3.0-only
  */
 
@@ -9,11 +9,26 @@ import { Endpoint } from '@/server/api/endpoint-base.js';
 import type { UserProfilesRepository } from '@/models/_.js';
 import { DI } from '@/di-symbols.js';
 import { UserAuthService } from '@/core/UserAuthService.js';
+import { ApiError } from '@/server/api/error.js';
 
 export const meta = {
 	requireCredential: true,
 
 	secure: true,
+
+	errors: {
+		incorrectPassword: {
+			message: 'Incorrect password.',
+			code: 'INCORRECT_PASSWORD',
+			id: 'f5bcd508-adcf-40b1-9031-2e944a5d8390',
+		},
+
+		authenticationFailed: {
+			message: 'Authentication failed.',
+			code: 'AUTHENTICATION_FAILED',
+			id: '97fee157-34eb-4b0d-8fc3-375d0040f807',
+		},
+	},
 } as const;
 
 export const paramDef = {
@@ -35,25 +50,20 @@ export default class extends Endpoint<typeof meta, typeof paramDef> { // eslint-
 		private userAuthService: UserAuthService,
 	) {
 		super(meta, paramDef, async (ps, me) => {
-			const token = ps.token;
 			const profile = await this.userProfilesRepository.findOneByOrFail({ userId: me.id });
 
-			if (profile.twoFactorEnabled) {
-				if (token == null) {
-					throw new Error('authentication failed');
-				}
-
-				try {
-					await this.userAuthService.twoFactorAuthenticate(profile, token);
-				} catch (e) {
-					throw new Error('authentication failed');
-				}
+			const passwordMatched = await bcrypt.compare(ps.currentPassword, profile.password!);
+			if (!passwordMatched) {
+				throw new ApiError(meta.errors.incorrectPassword);
 			}
 
-			const passwordMatched = await bcrypt.compare(ps.currentPassword, profile.password!);
+			if (profile.twoFactorEnabled) {
+				const token = ps.token;
+				if (token == null) {
+					throw new ApiError(meta.errors.authenticationFailed);
+				}
 
-			if (!passwordMatched) {
-				throw new Error('incorrect password');
+				await this.userAuthService.twoFactorAuthenticate(profile, token);
 			}
 
 			// Generate hash of password

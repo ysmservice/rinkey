@@ -1,5 +1,5 @@
 /*
- * SPDX-FileCopyrightText: syuilo and other misskey contributors
+ * SPDX-FileCopyrightText: syuilo and misskey-project
  * SPDX-License-Identifier: AGPL-3.0-only
  */
 
@@ -8,12 +8,13 @@ import { isUserRelated } from '@/misc/is-user-related.js';
 import { NoteEntityService } from '@/core/entities/NoteEntityService.js';
 import { bindThis } from '@/decorators.js';
 import type { GlobalEvents } from '@/core/GlobalEventService.js';
-import Channel from '../channel.js';
+import Channel, { type MiChannelService } from '../channel.js';
 
 class AntennaChannel extends Channel {
 	public readonly chName = 'antenna';
-	public static shouldShare = false;
-	public static requireCredential = false;
+	public static readonly shouldShare = false;
+	public static readonly requireCredential = true as const;
+	public static readonly kind = 'read:account';
 	private antennaId: string;
 
 	constructor(
@@ -39,6 +40,14 @@ class AntennaChannel extends Channel {
 		if (data.type === 'note') {
 			const note = await this.noteEntityService.pack(data.body.id, this.user, { detail: true });
 
+			if (note.reply) {
+				const reply = note.reply;
+				// 自分のフォローしていないユーザーの visibility: followers な投稿への返信は弾く
+				if (reply.visibility === 'followers' && !Object.hasOwn(this.following, reply.userId)) return;
+				// 自分の見ることができないユーザーの visibility: specified な投稿への返信は弾く
+				if (reply.visibility === 'specified' && !reply.visibleUserIds!.includes(this.user!.id)) return;
+			}
+
 			// 流れてきたNoteがミュートしているユーザーが関わるものだったら無視する
 			if (isUserRelated(note, this.userIdsWhoMeMuting)) return;
 			// 流れてきたNoteがブロックされているユーザーが関わるものだったら無視する
@@ -62,9 +71,10 @@ class AntennaChannel extends Channel {
 }
 
 @Injectable()
-export class AntennaChannelService {
+export class AntennaChannelService implements MiChannelService<true> {
 	public readonly shouldShare = AntennaChannel.shouldShare;
 	public readonly requireCredential = AntennaChannel.requireCredential;
+	public readonly kind = AntennaChannel.kind;
 
 	constructor(
 		private noteEntityService: NoteEntityService,

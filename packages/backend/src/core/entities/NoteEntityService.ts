@@ -1,5 +1,5 @@
 /*
- * SPDX-FileCopyrightText: syuilo and other misskey contributors
+ * SPDX-FileCopyrightText: syuilo and misskey-project
  * SPDX-License-Identifier: AGPL-3.0-only
  */
 
@@ -108,7 +108,7 @@ export class NoteEntityService implements OnModuleInit {
 				hide = false;
 			} else {
 				// フォロワーかどうか
-				const isFollowing = await this.followingsRepository.exist({
+				const isFollowing = await this.followingsRepository.exists({
 					where: {
 						followeeId: packedNote.userId,
 						followerId: meId,
@@ -164,7 +164,7 @@ export class NoteEntityService implements OnModuleInit {
 
 		return {
 			multiple: poll.multiple,
-			expiresAt: poll.expiresAt,
+			expiresAt: poll.expiresAt?.toISOString() ?? null,
 			choices,
 		};
 	}
@@ -265,13 +265,17 @@ export class NoteEntityService implements OnModuleInit {
 	}
 
 	@bindThis
-	public async packAttachedFiles(fileIds: MiNote['fileIds'], packedFiles: Map<MiNote['fileIds'][number], Packed<'DriveFile'> | null>): Promise<Packed<'DriveFile'>[]> {
+	public async packAttachedFiles(
+		fileIds: MiNote['fileIds'],
+		packedFiles: Map<MiNote['fileIds'][number], Packed<'DriveFile'> | null>,
+		me: { id: MiUser['id'] } | null | undefined,
+	): Promise<Packed<'DriveFile'>[]> {
 		const missingIds = [];
 		for (const id of fileIds) {
 			if (!packedFiles.has(id)) missingIds.push(id);
 		}
 		if (missingIds.length) {
-			const additionalMap = await this.driveFileEntityService.packManyByIdsMap(missingIds);
+			const additionalMap = await this.driveFileEntityService.packManyByIdsMap(missingIds, me);
 			for (const [k, v] of additionalMap) {
 				packedFiles.set(k, v);
 			}
@@ -282,7 +286,7 @@ export class NoteEntityService implements OnModuleInit {
 	@bindThis
 	public async pack(
 		src: MiNote['id'] | MiNote,
-		me?: { id: MiUser['id'] } | null | undefined,
+		me: { id: MiUser['id'] } | null | undefined,
 		options?: {
 			detail?: boolean;
 			skipHide?: boolean;
@@ -318,15 +322,14 @@ export class NoteEntityService implements OnModuleInit {
 		const reactionEmojiNames = Object.keys(note.reactions)
 			.filter(x => x.startsWith(':') && x.includes('@') && !x.includes('@.')) // リモートカスタム絵文字のみ
 			.map(x => this.reactionService.decodeReaction(x).reaction.replaceAll(':', ''));
+		await this.customEmojiService.prefetchEmojis(this.aggregateNoteEmojis([note]));
 		const packedFiles = options?._hint_?.packedFiles;
 
 		const packed: Packed<'Note'> = await awaitAll({
 			id: note.id,
 			createdAt: this.idService.parse(note.id).date.toISOString(),
 			userId: note.userId,
-			user: this.userEntityService.pack(note.user ?? note.userId, me, {
-				detail: false,
-			}),
+			user: this.userEntityService.pack(note.user ?? note.userId, me),
 			text: text,
 			cw: note.cw,
 			visibility: note.visibility,
@@ -335,13 +338,14 @@ export class NoteEntityService implements OnModuleInit {
 			visibleUserIds: note.visibility === 'specified' ? note.visibleUserIds : undefined,
 			renoteCount: note.renoteCount,
 			repliesCount: note.repliesCount,
+			reactionCount: Object.values(note.reactions).reduce((a, b) => a + b, 0),
 			reactions: this.reactionService.convertLegacyReactions(note.reactions),
 			reactionEmojis: this.customEmojiService.populateEmojis(reactionEmojiNames, host),
 			reactionAndUserPairCache: opts.withReactionAndUserPairCache ? note.reactionAndUserPairCache : undefined,
 			emojis: host != null ? this.customEmojiService.populateEmojis(note.emojis, host) : undefined,
 			tags: note.tags.length > 0 ? note.tags : undefined,
 			fileIds: note.fileIds,
-			files: packedFiles != null ? this.packAttachedFiles(note.fileIds, packedFiles) : this.driveFileEntityService.packManyByIds(note.fileIds),
+			files: packedFiles != null ? this.packAttachedFiles(note.fileIds, packedFiles, me) : this.driveFileEntityService.packManyByIds(note.fileIds, me),
 			replyId: note.replyId,
 			renoteId: note.renoteId,
 			channelId: note.channelId ?? undefined,
@@ -351,6 +355,7 @@ export class NoteEntityService implements OnModuleInit {
 				color: channel.color,
 				isSensitive: channel.isSensitive,
 				allowRenoteToExternal: channel.allowRenoteToExternal,
+				userId: channel.userId,
 			} : undefined,
 			mentions: note.mentions.length > 0 ? note.mentions : undefined,
 			uri: note.uri ?? undefined,
@@ -391,12 +396,12 @@ export class NoteEntityService implements OnModuleInit {
 	@bindThis
 	public async packMany(
 		notes: MiNote[],
-		me?: { id: MiUser['id'] } | null | undefined,
+		me: { id: MiUser['id'] } | null | undefined,
 		options?: {
 			detail?: boolean;
 			skipHide?: boolean;
 		},
-	) {
+	) : Promise<Packed<'Note'>[]> {
 		if (notes.length === 0) return [];
 
 		const meId = me ? me.id : null;
@@ -448,15 +453,17 @@ export class NoteEntityService implements OnModuleInit {
 		await this.customEmojiService.prefetchEmojis(this.aggregateNoteEmojis(notes));
 		// TODO: 本当は renote とか reply がないのに renoteId とか replyId があったらここで解決しておく
 		const fileIds = notes.map(n => [n.fileIds, n.renote?.fileIds, n.reply?.fileIds]).flat(2).filter(isNotNull);
-		const packedFiles = fileIds.length > 0 ? await this.driveFileEntityService.packManyByIdsMap(fileIds) : new Map();
+		const packedFiles = fileIds.length > 0 ? await this.driveFileEntityService.packManyByIdsMap(fileIds, me) : new Map();
 
-		return await Promise.all(notes.map(n => this.pack(n, me, {
+		return (await Promise.allSettled(notes.map(n => this.pack(n, me, {
 			...options,
 			_hint_: {
 				myReactions: myReactionsMap,
 				packedFiles,
 			},
-		})));
+		}))))
+			.filter(result => result.status === 'fulfilled')
+			.map(result => (result as PromiseFulfilledResult<Packed<'Note'>>).value);
 	}
 
 	@bindThis

@@ -1,5 +1,5 @@
 /*
- * SPDX-FileCopyrightText: syuilo and other misskey contributors
+ * SPDX-FileCopyrightText: syuilo and misskey-project
  * SPDX-License-Identifier: AGPL-3.0-only
  */
 
@@ -71,6 +71,10 @@ export class StreamingApiServerService {
 
 			try {
 				[user, app] = await this.authenticateService.authenticate(token);
+
+				if (app !== null && !app.permission.some(p => p === 'read:account')) {
+					throw new AuthenticationError('Your app does not have necessary permissions to use websocket API.');
+				}
 			} catch (e) {
 				if (e instanceof AuthenticationError) {
 					socket.write([
@@ -169,13 +173,12 @@ export class StreamingApiServerService {
 	}
 
 	@bindThis
-	public detach(): Promise<void> {
+	public detach(): void {
 		if (this.#cleanConnectionsIntervalId) {
 			clearInterval(this.#cleanConnectionsIntervalId);
 			this.#cleanConnectionsIntervalId = null;
 		}
-		return new Promise((resolve) => {
-			this.#wss.close(() => resolve());
-		});
+		this.#wss.close();
+		this.#wss.clients.forEach(client => client.terminate());
 	}
 }

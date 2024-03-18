@@ -1,5 +1,5 @@
 /*
- * SPDX-FileCopyrightText: syuilo and other misskey contributors
+ * SPDX-FileCopyrightText: syuilo and misskey-project
  * SPDX-License-Identifier: AGPL-3.0-only
  */
 
@@ -27,11 +27,24 @@ export const packedEmojiSimpleSchema = {
 			type: 'string',
 			optional: false, nullable: false,
 		},
+		localOnly: {
+			type: 'boolean',
+			optional: true, nullable: false,
+		},
 		isSensitive: {
 			type: 'boolean',
 			optional: true, nullable: false,
 		},
 		roleIdsThatCanBeUsedThisEmojiAsReaction: {
+			type: 'array',
+			optional: true, nullable: false,
+			items: {
+				type: 'string',
+				optional: false, nullable: false,
+				format: 'id',
+			},
+		},
+		roleIdsThatCanNotBeUsedThisEmojiAsReaction: {
 			type: 'array',
 			optional: true, nullable: false,
 			items: {
@@ -50,6 +63,16 @@ export const packedEmojiDetailedSchema = {
 			type: 'string',
 			optional: false, nullable: false,
 			format: 'id',
+		},
+		createdAt: {
+			type: 'string',
+			optional: true, nullable: false,
+			format: 'date-time',
+		},
+		updatedAt: {
+			type: 'string',
+			optional: true, nullable: true,
+			format: 'date-time',
 		},
 		aliases: {
 			type: 'array',
@@ -89,9 +112,26 @@ export const packedEmojiDetailedSchema = {
 			type: 'boolean',
 			optional: false, nullable: false,
 		},
+		requestedBy: {
+			type: 'string',
+			optional: true, nullable: true,
+		},
+		memo: {
+			type: 'string',
+			optional: true, nullable: true,
+		},
 		roleIdsThatCanBeUsedThisEmojiAsReaction: {
 			type: 'array',
-			optional: false, nullable: false,
+			optional: true, nullable: false,
+			items: {
+				type: 'string',
+				optional: false, nullable: false,
+				format: 'id',
+			},
+		},
+		roleIdsThatCanNotBeUsedThisEmojiAsReaction: {
+			type: 'array',
+			optional: true, nullable: false,
 			items: {
 				type: 'string',
 				optional: false, nullable: false,

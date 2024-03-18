@@ -1,5 +1,5 @@
 /*
- * SPDX-FileCopyrightText: syuilo and other misskey contributors
+ * SPDX-FileCopyrightText: syuilo and misskey-project
  * SPDX-License-Identifier: AGPL-3.0-only
  */
 
@@ -7,10 +7,13 @@
 import pg from 'pg';
 pg.types.setTypeParser(20, Number);
 
-import { DataSource, Logger } from 'typeorm';
+import { DataSource, Logger, QueryRunner } from 'typeorm';
+import { QueryResultCache } from 'typeorm/cache/QueryResultCache.js';
+import { QueryResultCacheOptions } from 'typeorm/cache/QueryResultCacheOptions.js';
 import * as highlight from 'cli-highlight';
 import { entities as charts } from '@/core/chart/entities.js';
 
+import { MiAbuseReportResolver } from '@/models/AbuseReportResolver.js';
 import { MiAbuseUserReport } from '@/models/AbuseUserReport.js';
 import { MiAccessToken } from '@/models/AccessToken.js';
 import { MiAd } from '@/models/Ad.js';
@@ -34,6 +37,7 @@ import { MiFollowRequest } from '@/models/FollowRequest.js';
 import { MiGalleryLike } from '@/models/GalleryLike.js';
 import { MiGalleryPost } from '@/models/GalleryPost.js';
 import { MiHashtag } from '@/models/Hashtag.js';
+import { MiIndieAuthClient } from '@/models/IndieAuthClient.js';
 import { MiInstance } from '@/models/Instance.js';
 import { MiMeta } from '@/models/Meta.js';
 import { MiModerationLog } from '@/models/ModerationLog.js';
@@ -55,6 +59,7 @@ import { MiRegistrationTicket } from '@/models/RegistrationTicket.js';
 import { MiRegistryItem } from '@/models/RegistryItem.js';
 import { MiRelay } from '@/models/Relay.js';
 import { MiSignin } from '@/models/Signin.js';
+import { MiSingleSignOnServiceProvider } from '@/models/SingleSignOnServiceProvider.js';
 import { MiSwSubscription } from '@/models/SwSubscription.js';
 import { MiUsedUsername } from '@/models/UsedUsername.js';
 import { MiUser } from '@/models/User.js';
@@ -76,10 +81,13 @@ import { MiRoleAssignment } from '@/models/RoleAssignment.js';
 import { MiFlash } from '@/models/Flash.js';
 import { MiFlashLike } from '@/models/FlashLike.js';
 import { MiUserMemo } from '@/models/UserMemo.js';
+import { MiBubbleGameRecord } from '@/models/BubbleGameRecord.js';
+import { MiReversiGame } from '@/models/ReversiGame.js';
 
 import { Config } from '@/config.js';
-import MisskeyLogger from '@/logger.js';
 import { bindThis } from '@/decorators.js';
+import MisskeyLogger from '@/logger.js';
+import { envOption } from './env.js';
 
 export const dbLogger = new MisskeyLogger('db');
 
@@ -88,6 +96,8 @@ const sqlLogger = dbLogger.createSubLogger('sql', 'gray', false);
 class MyCustomLogger implements Logger {
 	@bindThis
 	private highlight(sql: string) {
+		if (envOption.logJson) return sql;
+
 		return highlight.highlight(sql, {
 			language: 'sql', ignoreIllegals: true,
 		});
@@ -95,7 +105,7 @@ class MyCustomLogger implements Logger {
 
 	@bindThis
 	public logQuery(query: string, parameters?: any[]) {
-		sqlLogger.info(this.highlight(query).substring(0, 100));
+		sqlLogger.info(this.highlight(query));
 	}
 
 	@bindThis
@@ -125,6 +135,7 @@ class MyCustomLogger implements Logger {
 }
 
 export const entities = [
+	MiAbuseReportResolver,
 	MiAnnouncement,
 	MiAnnouncementRead,
 	MiMeta,
@@ -163,10 +174,12 @@ export const entities = [
 	MiPollVote,
 	MiEmoji,
 	MiHashtag,
+	MiIndieAuthClient,
 	MiSwSubscription,
 	MiAbuseUserReport,
 	MiRegistrationTicket,
 	MiSignin,
+	MiSingleSignOnServiceProvider,
 	MiModerationLog,
 	MiClip,
 	MiClipNote,
@@ -190,10 +203,105 @@ export const entities = [
 	MiFlash,
 	MiFlashLike,
 	MiUserMemo,
+	MiBubbleGameRecord,
+	MiReversiGame,
 	...charts,
 ];
 
 const log = process.env.NODE_ENV !== 'production';
+const timeoutFinalizationRegistry = new FinalizationRegistry((reference: { name: string; timeout: NodeJS.Timeout }) => {
+	dbLogger.info(`Finalizing timeout: ${reference.name}`);
+	clearInterval(reference.timeout);
+});
+
+class InMemoryQueryResultCache implements QueryResultCache {
+	private cache: Map<string, QueryResultCacheOptions>;
+
+	constructor(
+		private dataSource: DataSource,
+	) {
+		this.cache = new Map();
+
+		const gcIntervalHandle = setInterval(() => {
+			this.gc();
+		}, 1000 * 60 * 3);
+
+		timeoutFinalizationRegistry.register(this, { name: typeof this, timeout: gcIntervalHandle });
+	}
+
+	connect(): Promise<void> {
+		return Promise.resolve(undefined);
+	}
+
+	disconnect(): Promise<void> {
+		return Promise.resolve(undefined);
+	}
+
+	synchronize(queryRunner: QueryRunner): Promise<void> {
+		return Promise.resolve(undefined);
+	}
+
+	async clear(queryRunner?: QueryRunner): Promise<void> {
+		return new Promise<void>((ok) => {
+			this.cache.clear();
+			ok();
+		});
+	}
+
+	storeInCache(
+		options: QueryResultCacheOptions,
+		savedCache: QueryResultCacheOptions | undefined,
+		queryRunner?: QueryRunner,
+	): Promise<void> {
+		return new Promise<void>((ok, fail) => {
+			if (options.identifier) {
+				this.cache.set(options.identifier, options);
+				ok();
+			} else if (options.query) {
+				this.cache.set(options.query, options);
+				ok();
+			}
+			fail(new Error('No identifier or query'));
+		});
+	}
+
+	getFromCache(
+		options: QueryResultCacheOptions,
+		queryRunner?: QueryRunner,
+	): Promise<QueryResultCacheOptions | undefined> {
+		return new Promise<QueryResultCacheOptions | undefined>((ok) => {
+			if (options.identifier) {
+				ok(this.cache.get(options.identifier));
+			} else if (options.query) {
+				ok(this.cache.get(options.query));
+			} else {
+				ok(undefined);
+			}
+		});
+	}
+
+	isExpired(savedCache: QueryResultCacheOptions): boolean {
+		return (savedCache.time ?? 0) + savedCache.duration < Date.now();
+	}
+
+	remove(identifiers: string[], queryRunner?: QueryRunner): Promise<void> {
+		return new Promise<void>((ok) => {
+			for (const identifier of identifiers) {
+				this.cache.delete(identifier);
+			}
+			ok();
+		});
+	}
+
+	gc(): void {
+		const now = Date.now();
+		for (const [key, { time, duration }] of this.cache.entries()) {
+			if ((time ?? 0) + duration < now) {
+				this.cache.delete(key);
+			}
+		}
+	}
+}
 
 export function createPostgresDataSource(config: Config) {
 	return new DataSource({
@@ -207,38 +315,34 @@ export function createPostgresDataSource(config: Config) {
 			statement_timeout: 1000 * 10,
 			...config.db.extra,
 		},
-		replication: config.dbReplications ? {
-			master: {
-				host: config.db.host,
-				port: config.db.port,
-				username: config.db.user,
-				password: config.db.pass,
-				database: config.db.db,
+		...(config.dbReplications ? {
+			replication: {
+				master: {
+					host: config.db.host,
+					port: config.db.port,
+					username: config.db.user,
+					password: config.db.pass,
+					database: config.db.db,
+				},
+				slaves: config.dbSlaves!.map(rep => ({
+					host: rep.host,
+					port: rep.port,
+					username: rep.user,
+					password: rep.pass,
+					database: rep.db,
+				})),
 			},
-			slaves: config.dbSlaves!.map(rep => ({
-				host: rep.host,
-				port: rep.port,
-				username: rep.user,
-				password: rep.pass,
-				database: rep.db,
-			})),
-		} : undefined,
+		} : {}),
 		synchronize: process.env.NODE_ENV === 'test',
 		dropSchema: process.env.NODE_ENV === 'test',
-		cache: !config.db.disableCache && process.env.NODE_ENV !== 'test' ? { // dbをcloseしても何故かredisのコネクションが内部的に残り続けるようで、テストの際に支障が出るため無効にする(キャッシュも含めてテストしたいため本当は有効にしたいが...)
-			type: 'ioredis',
-			options: {
-				host: config.redis.host,
-				port: config.redis.port,
-				family: config.redis.family ?? 0,
-				password: config.redis.pass,
-				keyPrefix: `${config.redis.prefix}:query:`,
-				db: config.redis.db ?? 0,
+		cache: !config.db.disableCache && process.env.NODE_ENV !== 'test' ? {
+			provider(dataSource) {
+				return new InMemoryQueryResultCache(dataSource);
 			},
 		} : false,
 		logging: log,
 		logger: log ? new MyCustomLogger() : undefined,
-		maxQueryExecutionTime: 300,
+		maxQueryExecutionTime: 10000, // 10s
 		entities: entities,
 		migrations: ['../../migration/*.js'],
 	});

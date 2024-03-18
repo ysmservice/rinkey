@@ -1,5 +1,5 @@
 /*
- * SPDX-FileCopyrightText: syuilo and other misskey contributors
+ * SPDX-FileCopyrightText: syuilo and misskey-project
  * SPDX-License-Identifier: AGPL-3.0-only
  */
 
@@ -11,6 +11,13 @@ import { MiUser } from './User.js';
 export class MiAnnouncement {
 	@PrimaryColumn(id())
 	public id: string;
+
+	@Index()
+	@Column('timestamp with time zone', {
+		comment: 'The created date of the Announcement.',
+		default: () => 'CURRENT_TIMESTAMP',
+	})
+	public createdAt: Date;
 
 	@Column('timestamp with time zone', {
 		comment: 'The updated date of the Announcement.',
@@ -38,7 +45,7 @@ export class MiAnnouncement {
 		length: 256, nullable: false,
 		default: 'info',
 	})
-	public icon: string;
+	public icon: 'info' | 'warning' | 'error' | 'success';
 
 	// normal ... お知らせページ掲載
 	// banner ... お知らせページ掲載 + バナー表示
@@ -47,18 +54,32 @@ export class MiAnnouncement {
 		length: 256, nullable: false,
 		default: 'normal',
 	})
-	public display: string;
+	public display: 'normal' | 'banner' | 'dialog';
 
 	@Column('boolean', {
 		default: false,
 	})
 	public needConfirmationToRead: boolean;
 
+	@Column('integer', {
+		nullable: false,
+		default: 0,
+	})
+	public closeDuration: number;
+
 	@Index()
 	@Column('boolean', {
 		default: true,
 	})
 	public isActive: boolean;
+
+	// UIに表示する際の並び順用(大きいほど先頭)
+	@Index()
+	@Column('integer', {
+		nullable: false,
+		default: 0,
+	})
+	public displayOrder: number;
 
 	@Index()
 	@Column('boolean', {

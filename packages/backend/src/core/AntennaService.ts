@@ -1,5 +1,5 @@
 /*
- * SPDX-FileCopyrightText: syuilo and other misskey contributors
+ * SPDX-FileCopyrightText: syuilo and misskey-project
  * SPDX-License-Identifier: AGPL-3.0-only
  */
 
@@ -16,7 +16,8 @@ import type { AntennasRepository, UserListMembershipsRepository } from '@/models
 import { UtilityService } from '@/core/UtilityService.js';
 import { bindThis } from '@/decorators.js';
 import type { GlobalEvents } from '@/core/GlobalEventService.js';
-import { FunoutTimelineService } from '@/core/FunoutTimelineService.js';
+import { FanoutTimelineService } from '@/core/FanoutTimelineService.js';
+import { RolePolicies, RoleService } from '@/core/RoleService.js';
 import type { OnApplicationShutdown } from '@nestjs/common';
 
 @Injectable()
@@ -39,7 +40,8 @@ export class AntennaService implements OnApplicationShutdown {
 
 		private utilityService: UtilityService,
 		private globalEventService: GlobalEventService,
-		private funoutTimelineService: FunoutTimelineService,
+		private fanoutTimelineService: FanoutTimelineService,
+		private roleService: RoleService,
 	) {
 		this.antennasFetched = false;
 		this.antennas = [];
@@ -55,23 +57,32 @@ export class AntennaService implements OnApplicationShutdown {
 			const { type, body } = obj.message as GlobalEvents['internal']['payload'];
 			switch (type) {
 				case 'antennaCreated':
-					this.antennas.push({
+					this.antennas.push({ // TODO: このあたりのデシリアライズ処理は各modelファイル内に関数としてexportしたい
 						...body,
+						createdAt: new Date(body.createdAt),
 						lastUsedAt: new Date(body.lastUsedAt),
+						user: null, // joinなカラムは通常取ってこないので
+						userList: null, // joinなカラムは通常取ってこないので
 					});
 					break;
 				case 'antennaUpdated': {
 					const idx = this.antennas.findIndex(a => a.id === body.id);
 					if (idx >= 0) {
-						this.antennas[idx] = {
+						this.antennas[idx] = { // TODO: このあたりのデシリアライズ処理は各modelファイル内に関数としてexportしたい
 							...body,
+							createdAt: new Date(body.createdAt),
 							lastUsedAt: new Date(body.lastUsedAt),
+							user: null, // joinなカラムは通常取ってこないので
+							userList: null, // joinなカラムは通常取ってこないので
 						};
 					} else {
 						// サーバ起動時にactiveじゃなかった場合、リストに持っていないので追加する必要あり
-						this.antennas.push({
+						this.antennas.push({ // TODO: このあたりのデシリアライズ処理は各modelファイル内に関数としてexportしたい
 							...body,
+							createdAt: new Date(body.createdAt),
 							lastUsedAt: new Date(body.lastUsedAt),
+							user: null, // joinなカラムは通常取ってこないので
+							userList: null, // joinなカラムは通常取ってこないので
 						});
 					}
 				}
@@ -93,8 +104,14 @@ export class AntennaService implements OnApplicationShutdown {
 
 		const redisPipeline = this.redisForTimelines.pipeline();
 
+		const policies = new Map((await Promise.allSettled(Array.from(new Set(matchedAntennas.map(antenna => antenna.userId))).map(async userId => [userId, await this.roleService.getUserPolicies(userId)] as const)))
+			.filter((result): result is PromiseFulfilledResult<[string, RolePolicies]> => result.status === 'fulfilled')
+			.map(result => result.value));
+
 		for (const antenna of matchedAntennas) {
-			this.funoutTimelineService.push(`antennaTimeline:${antenna.id}`, note.id, 200, redisPipeline);
+			const { antennaNotesLimit } = policies.get(antenna.userId) ?? await this.roleService.getUserPolicies(antenna.userId);
+
+			this.fanoutTimelineService.push(`antennaTimeline:${antenna.id}`, note.id, antennaNotesLimit, redisPipeline);
 			this.globalEventService.publishAntennaStream(antenna.id, 'note', note);
 		}
 

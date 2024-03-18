@@ -1,5 +1,5 @@
 /*
- * SPDX-FileCopyrightText: syuilo and other misskey contributors
+ * SPDX-FileCopyrightText: syuilo and misskey-project
  * SPDX-License-Identifier: AGPL-3.0-only
  */
 
@@ -17,6 +17,7 @@ export const meta = {
 	tags: ['pages'],
 
 	requireCredential: true,
+	requireRolePolicy: 'canCreateContent',
 
 	prohibitMoved: true,
 
@@ -119,7 +120,7 @@ export default class extends Endpoint<typeof meta, typeof paramDef> { // eslint-
 				font: ps.font,
 			})).then(x => this.pagesRepository.findOneByOrFail(x.identifiers[0]));
 
-			return await this.pageEntityService.pack(page);
+			return await this.pageEntityService.pack(page, me);
 		});
 	}
 }

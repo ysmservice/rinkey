@@ -1,5 +1,5 @@
 <!--
-SPDX-FileCopyrightText: syuilo and other misskey contributors
+SPDX-FileCopyrightText: syuilo and misskey-project
 SPDX-License-Identifier: AGPL-3.0-only
 -->
 
@@ -37,12 +37,13 @@ SPDX-License-Identifier: AGPL-3.0-only
 </template>
 
 <script lang="ts" setup>
-import { computed, onMounted, onUnmounted, ref } from 'vue';
+import { onMounted, onUnmounted, ref } from 'vue';
 import { v4 as uuid } from 'uuid';
 import FormSection from '@/components/form/section.vue';
 import MkButton from '@/components/MkButton.vue';
 import MkInfo from '@/components/MkInfo.vue';
 import * as os from '@/os.js';
+import { misskeyApi } from '@/scripts/misskey-api.js';
 import { ColdDeviceStorage, defaultStore } from '@/store.js';
 import { unisonReload } from '@/scripts/unison-reload.js';
 import { useStream } from '@/stream.js';
@@ -51,6 +52,7 @@ import { i18n } from '@/i18n.js';
 import { version, host } from '@/config.js';
 import { definePageMetadata } from '@/scripts/page-metadata.js';
 import { miLocalStorage } from '@/local-storage.js';
+
 const { t, ts } = i18n;
 
 const defaultStoreSaveKeys: (keyof typeof defaultStore['state'])[] = [
@@ -69,9 +71,12 @@ const defaultStoreSaveKeys: (keyof typeof defaultStore['state'])[] = [
 	'animation',
 	'animatedMfm',
 	'advancedMfm',
+	'showRepliesCount',
+	'showRenotesCount',
+	'showReactionsCount',
 	'loadRawImages',
 	'imageNewTab',
-	'enableDataSaverMode',
+	'dataSaver',
 	'disableShowingAnimatedImages',
 	'emojiStyle',
 	'disableDrawer',
@@ -83,10 +88,10 @@ const defaultStoreSaveKeys: (keyof typeof defaultStore['state'])[] = [
 	'useReactionPickerForContextMenu',
 	'showGapBetweenNotesInTimeline',
 	'instanceTicker',
-	'reactionPickerSize',
-	'reactionPickerWidth',
-	'reactionPickerHeight',
-	'reactionPickerUseDrawerForMobile',
+	'emojiPickerScale',
+	'emojiPickerWidth',
+	'emojiPickerHeight',
+	'emojiPickerUseDrawerForMobile',
 	'defaultSideView',
 	'menuDisplay',
 	'reportError',
@@ -104,6 +109,7 @@ const defaultStoreSaveKeys: (keyof typeof defaultStore['state'])[] = [
 	'notificationStackAxis',
 	'enableCondensedLineForAcct',
 	'keepScreenOn',
+	'hideMutedNotes',
 	'defaultWithReplies',
 	'disableStreamingTimeline',
 	'useGroupedNotifications',
@@ -144,7 +150,7 @@ const connection = $i && useStream().useChannel('main');
 
 const profiles = ref<Record<string, Profile> | null>(null);
 
-os.api('i/registry/get-all', { scope })
+misskeyApi('i/registry/get-all', { scope })
 	.then(res => {
 		profiles.value = res || {};
 	});
@@ -202,6 +208,7 @@ async function saveNew(): Promise<void> {
 
 	const { canceled, result: name } = await os.inputText({
 		title: ts._preferencesBackups.inputName,
+		default: '',
 	});
 	if (canceled) return;
 
@@ -276,7 +283,7 @@ async function applyProfile(id: string): Promise<void> {
 	const { canceled: cancel1 } = await os.confirm({
 		type: 'warning',
 		title: ts._preferencesBackups.apply,
-		text: t('_preferencesBackups.applyConfirm', { name: profile.name }),
+		text: t('_preferencesBackups.applyConfirm', { name: profile.name || '' }),
 	});
 	if (cancel1) return;
 
@@ -334,7 +341,7 @@ async function deleteProfile(id: string): Promise<void> {
 	const { canceled } = await os.confirm({
 		type: 'info',
 		title: ts.delete,
-		text: t('deleteAreYouSure', { x: profiles.value[id].name }),
+		text: t('deleteAreYouSure', { x: profiles.value[id].name || '' }),
 	});
 	if (canceled) return;
 
@@ -350,7 +357,7 @@ async function save(id: string): Promise<void> {
 	const { canceled } = await os.confirm({
 		type: 'info',
 		title: ts._preferencesBackups.save,
-		text: t('_preferencesBackups.saveConfirm', { name }),
+		text: t('_preferencesBackups.saveConfirm', { name: name || '' }),
 	});
 	if (canceled) return;
 
@@ -370,6 +377,7 @@ async function rename(id: string): Promise<void> {
 
 	const { canceled: cancel1, result: name } = await os.inputText({
 		title: ts._preferencesBackups.inputName,
+		default: '',
 	});
 	if (cancel1 || profiles.value[id].name === name) return;
 
@@ -385,7 +393,7 @@ async function rename(id: string): Promise<void> {
 	const { canceled: cancel2 } = await os.confirm({
 		type: 'info',
 		title: ts.rename,
-		text: t('_preferencesBackups.renameConfirm', { old: registry.name, new: name }),
+		text: t('_preferencesBackups.renameConfirm', { old: registry.name || '', new: name }),
 	});
 	if (cancel2) return;
 
@@ -406,7 +414,7 @@ function menu(ev: MouseEvent, profileId: string) {
 		icon: 'ti ti-download',
 		href: URL.createObjectURL(new Blob([JSON.stringify(profiles.value[profileId], null, 2)], { type: 'application/json' })),
 		download: `${profiles.value[profileId].name}.json`,
-	}, null, {
+	}, { type: 'divider' }, {
 		text: ts.rename,
 		icon: 'ti ti-forms',
 		action: () => rename(profileId),
@@ -414,7 +422,7 @@ function menu(ev: MouseEvent, profileId: string) {
 		text: ts._preferencesBackups.save,
 		icon: 'ti ti-device-floppy',
 		action: () => save(profileId),
-	}, null, {
+	}, { type: 'divider' }, {
 		text: ts.delete,
 		icon: 'ti ti-trash',
 		action: () => deleteProfile(profileId),
@@ -436,10 +444,10 @@ onUnmounted(() => {
 	connection?.off('registryUpdated');
 });
 
-definePageMetadata(computed(() => ({
+definePageMetadata(() => ({
 	title: ts.preferencesBackups,
 	icon: 'ti ti-device-floppy',
-})));
+}));
 </script>
 
 <style lang="scss" module>

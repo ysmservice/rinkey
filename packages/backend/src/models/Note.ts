@@ -1,5 +1,5 @@
 /*
- * SPDX-FileCopyrightText: syuilo and other misskey contributors
+ * SPDX-FileCopyrightText: syuilo and misskey-project
  * SPDX-License-Identifier: AGPL-3.0-only
  */
 
@@ -13,10 +13,18 @@ import type { MiDriveFile } from './DriveFile.js';
 @Entity('note')
 @Index('IDX_NOTE_TAGS', { synchronize: false })
 @Index('IDX_NOTE_MENTIONS', { synchronize: false })
+@Index('IDX_NOTE_FILE_IDS', { synchronize: false })
 @Index('IDX_NOTE_VISIBLE_USER_IDS', { synchronize: false })
 export class MiNote {
 	@PrimaryColumn(id())
 	public id: string;
+
+	@Index()
+	@Column('timestamp with time zone', {
+		comment: 'The created date of the Note.',
+		default: () => 'CURRENT_TIMESTAMP',
+	})
+	public createdAt: Date;
 
 	@Index()
 	@Column({

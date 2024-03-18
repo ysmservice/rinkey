@@ -1,5 +1,5 @@
 /*
- * SPDX-FileCopyrightText: syuilo and other misskey contributors
+ * SPDX-FileCopyrightText: syuilo and misskey-project
  * SPDX-License-Identifier: AGPL-3.0-only
  */
 
@@ -73,7 +73,7 @@ export class ExportBlockingProcessorService {
 					break;
 				}
 
-				cursor = blockings.at(-1)?.id ?? null;
+				cursor = blockings[blockings.length - 1].id;
 
 				for (const block of blockings) {
 					const u = await this.usersRepository.findOneBy({ id: block.blockeeId });

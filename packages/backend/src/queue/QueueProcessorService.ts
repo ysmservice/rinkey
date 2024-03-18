@@ -1,5 +1,5 @@
 /*
- * SPDX-FileCopyrightText: syuilo and other misskey contributors
+ * SPDX-FileCopyrightText: syuilo and misskey-project
  * SPDX-License-Identifier: AGPL-3.0-only
  */
 
@@ -16,6 +16,7 @@ import { InboxProcessorService } from './processors/InboxProcessorService.js';
 import { DeleteDriveFilesProcessorService } from './processors/DeleteDriveFilesProcessorService.js';
 import { ExportCustomEmojisProcessorService } from './processors/ExportCustomEmojisProcessorService.js';
 import { ExportNotesProcessorService } from './processors/ExportNotesProcessorService.js';
+import { ExportClipsProcessorService } from './processors/ExportClipsProcessorService.js';
 import { ExportFollowingProcessorService } from './processors/ExportFollowingProcessorService.js';
 import { ExportMutingProcessorService } from './processors/ExportMutingProcessorService.js';
 import { ExportBlockingProcessorService } from './processors/ExportBlockingProcessorService.js';
@@ -32,6 +33,7 @@ import { ExportFavoritesProcessorService } from './processors/ExportFavoritesPro
 import { CleanRemoteFilesProcessorService } from './processors/CleanRemoteFilesProcessorService.js';
 import { DeleteFileProcessorService } from './processors/DeleteFileProcessorService.js';
 import { RelationshipProcessorService } from './processors/RelationshipProcessorService.js';
+import { ReportAbuseProcessorService } from './processors/ReportAbuseProcessorService.js';
 import { TickChartsProcessorService } from './processors/TickChartsProcessorService.js';
 import { ResyncChartsProcessorService } from './processors/ResyncChartsProcessorService.js';
 import { CleanChartsProcessorService } from './processors/CleanChartsProcessorService.js';
@@ -39,7 +41,7 @@ import { CheckExpiredMutingsProcessorService } from './processors/CheckExpiredMu
 import { CleanProcessorService } from './processors/CleanProcessorService.js';
 import { AggregateRetentionProcessorService } from './processors/AggregateRetentionProcessorService.js';
 import { QueueLoggerService } from './QueueLoggerService.js';
-import { QUEUE, baseQueueOptions } from './const.js';
+import { QUEUE, baseWorkerOptions } from './const.js';
 
 // ref. https://github.com/misskey-dev/misskey/pull/7635#issue-971097019
 function httpRelatedBackoff(attemptsMade: number) {
@@ -91,6 +93,7 @@ export class QueueProcessorService implements OnApplicationShutdown {
 		private deleteDriveFilesProcessorService: DeleteDriveFilesProcessorService,
 		private exportCustomEmojisProcessorService: ExportCustomEmojisProcessorService,
 		private exportNotesProcessorService: ExportNotesProcessorService,
+		private exportClipsProcessorService: ExportClipsProcessorService,
 		private exportFavoritesProcessorService: ExportFavoritesProcessorService,
 		private exportFollowingProcessorService: ExportFollowingProcessorService,
 		private exportMutingProcessorService: ExportMutingProcessorService,
@@ -107,6 +110,7 @@ export class QueueProcessorService implements OnApplicationShutdown {
 		private deleteFileProcessorService: DeleteFileProcessorService,
 		private cleanRemoteFilesProcessorService: CleanRemoteFilesProcessorService,
 		private relationshipProcessorService: RelationshipProcessorService,
+		private reportAbuseProcessorService: ReportAbuseProcessorService,
 		private tickChartsProcessorService: TickChartsProcessorService,
 		private resyncChartsProcessorService: ResyncChartsProcessorService,
 		private cleanChartsProcessorService: CleanChartsProcessorService,
@@ -144,7 +148,7 @@ export class QueueProcessorService implements OnApplicationShutdown {
 				default: throw new Error(`unrecognized job type ${job.name} for system`);
 			}
 		}, {
-			...baseQueueOptions(this.config, QUEUE.SYSTEM),
+			...baseWorkerOptions(this.config.redisForSystemQueue, this.config.bullmqWorkerOptions, QUEUE.SYSTEM),
 			autorun: false,
 		});
 
@@ -153,8 +157,8 @@ export class QueueProcessorService implements OnApplicationShutdown {
 		this.systemQueueWorker
 			.on('active', (job) => systemLogger.debug(`active id=${job.id}`))
 			.on('completed', (job, result) => systemLogger.debug(`completed(${result}) id=${job.id}`))
-			.on('failed', (job, err) => systemLogger.warn(`failed(${err}) id=${job ? job.id : '-'}`, { job, e: renderError(err) }))
-			.on('error', (err: Error) => systemLogger.error(`error ${err}`, { e: renderError(err) }))
+			.on('failed', (job, err) => systemLogger.warn(`failed(${err.stack}) id=${job ? job.id : '-'}`, { job, error: renderError(err) }))
+			.on('error', (err: Error) => systemLogger.error(`error ${err.stack}`, { error: renderError(err) }))
 			.on('stalled', (jobId) => systemLogger.warn(`stalled id=${jobId}`));
 		//#endregion
 
@@ -164,6 +168,7 @@ export class QueueProcessorService implements OnApplicationShutdown {
 				case 'deleteDriveFiles': return this.deleteDriveFilesProcessorService.process(job);
 				case 'exportCustomEmojis': return this.exportCustomEmojisProcessorService.process(job);
 				case 'exportNotes': return this.exportNotesProcessorService.process(job);
+				case 'exportClips': return this.exportClipsProcessorService.process(job);
 				case 'exportFavorites': return this.exportFavoritesProcessorService.process(job);
 				case 'exportFollowing': return this.exportFollowingProcessorService.process(job);
 				case 'exportMuting': return this.exportMutingProcessorService.process(job);
@@ -179,10 +184,11 @@ export class QueueProcessorService implements OnApplicationShutdown {
 				case 'importCustomEmojis': return this.importCustomEmojisProcessorService.process(job);
 				case 'importAntennas': return this.importAntennasProcessorService.process(job);
 				case 'deleteAccount': return this.deleteAccountProcessorService.process(job);
+				case 'reportAbuse': return this.reportAbuseProcessorService.process(job);
 				default: throw new Error(`unrecognized job type ${job.name} for db`);
 			}
 		}, {
-			...baseQueueOptions(this.config, QUEUE.DB),
+			...baseWorkerOptions(this.config.redisForDbQueue, this.config.bullmqWorkerOptions, QUEUE.DB),
 			autorun: false,
 		});
 
@@ -191,14 +197,14 @@ export class QueueProcessorService implements OnApplicationShutdown {
 		this.dbQueueWorker
 			.on('active', (job) => dbLogger.debug(`active id=${job.id}`))
 			.on('completed', (job, result) => dbLogger.debug(`completed(${result}) id=${job.id}`))
-			.on('failed', (job, err) => dbLogger.warn(`failed(${err}) id=${job ? job.id : '-'}`, { job, e: renderError(err) }))
-			.on('error', (err: Error) => dbLogger.error(`error ${err}`, { e: renderError(err) }))
+			.on('failed', (job, err) => dbLogger.warn(`failed(${err.stack}) id=${job ? job.id : '-'}`, { job, error: renderError(err) }))
+			.on('error', (err: Error) => dbLogger.error(`error ${err.stack}`, { error: renderError(err) }))
 			.on('stalled', (jobId) => dbLogger.warn(`stalled id=${jobId}`));
 		//#endregion
 
 		//#region deliver
 		this.deliverQueueWorker = new Bull.Worker(QUEUE.DELIVER, (job) => this.deliverProcessorService.process(job), {
-			...baseQueueOptions(this.config, QUEUE.DELIVER),
+			...baseWorkerOptions(this.config.redisForDeliverQueue, this.config.bullmqWorkerOptions, QUEUE.DELIVER),
 			autorun: false,
 			concurrency: this.config.deliverJobConcurrency ?? 128,
 			limiter: {
@@ -215,18 +221,18 @@ export class QueueProcessorService implements OnApplicationShutdown {
 		this.deliverQueueWorker
 			.on('active', (job) => deliverLogger.debug(`active ${getJobInfo(job, true)} to=${job.data.to}`))
 			.on('completed', (job, result) => deliverLogger.debug(`completed(${result}) ${getJobInfo(job, true)} to=${job.data.to}`))
-			.on('failed', (job, err) => deliverLogger.warn(`failed(${err}) ${getJobInfo(job)} to=${job ? job.data.to : '-'}`))
-			.on('error', (err: Error) => deliverLogger.error(`error ${err}`, { e: renderError(err) }))
+			.on('failed', (job, err) => deliverLogger.warn(`failed(${err.stack}) ${getJobInfo(job)} to=${job ? job.data.to : '-'}`))
+			.on('error', (err: Error) => deliverLogger.error(`error ${err.stack}`, { error: renderError(err) }))
 			.on('stalled', (jobId) => deliverLogger.warn(`stalled id=${jobId}`));
 		//#endregion
 
 		//#region inbox
 		this.inboxQueueWorker = new Bull.Worker(QUEUE.INBOX, (job) => this.inboxProcessorService.process(job), {
-			...baseQueueOptions(this.config, QUEUE.INBOX),
+			...baseWorkerOptions(this.config.redisForInboxQueue, this.config.bullmqWorkerOptions, QUEUE.INBOX),
 			autorun: false,
 			concurrency: this.config.inboxJobConcurrency ?? 16,
 			limiter: {
-				max: this.config.inboxJobPerSec ?? 16,
+				max: this.config.inboxJobPerSec ?? 32,
 				duration: 1000,
 			},
 			settings: {
@@ -239,14 +245,14 @@ export class QueueProcessorService implements OnApplicationShutdown {
 		this.inboxQueueWorker
 			.on('active', (job) => inboxLogger.debug(`active ${getJobInfo(job, true)}`))
 			.on('completed', (job, result) => inboxLogger.debug(`completed(${result}) ${getJobInfo(job, true)}`))
-			.on('failed', (job, err) => inboxLogger.warn(`failed(${err}) ${getJobInfo(job)} activity=${job ? (job.data.activity ? job.data.activity.id : 'none') : '-'}`, { job, e: renderError(err) }))
-			.on('error', (err: Error) => inboxLogger.error(`error ${err}`, { e: renderError(err) }))
+			.on('failed', (job, err) => inboxLogger.warn(`failed(${err.stack}) ${getJobInfo(job)} activity=${job ? (job.data.activity ? job.data.activity.id : 'none') : '-'}`, { job, error: renderError(err) }))
+			.on('error', (err: Error) => inboxLogger.error(`error ${err.stack}`, { error: renderError(err) }))
 			.on('stalled', (jobId) => inboxLogger.warn(`stalled id=${jobId}`));
 		//#endregion
 
 		//#region webhook deliver
 		this.webhookDeliverQueueWorker = new Bull.Worker(QUEUE.WEBHOOK_DELIVER, (job) => this.webhookDeliverProcessorService.process(job), {
-			...baseQueueOptions(this.config, QUEUE.WEBHOOK_DELIVER),
+			...baseWorkerOptions(this.config.redisForWebhookDeliverQueue, this.config.bullmqWorkerOptions, QUEUE.WEBHOOK_DELIVER),
 			autorun: false,
 			concurrency: 64,
 			limiter: {
@@ -263,8 +269,8 @@ export class QueueProcessorService implements OnApplicationShutdown {
 		this.webhookDeliverQueueWorker
 			.on('active', (job) => webhookLogger.debug(`active ${getJobInfo(job, true)} to=${job.data.to}`))
 			.on('completed', (job, result) => webhookLogger.debug(`completed(${result}) ${getJobInfo(job, true)} to=${job.data.to}`))
-			.on('failed', (job, err) => webhookLogger.warn(`failed(${err}) ${getJobInfo(job)} to=${job ? job.data.to : '-'}`))
-			.on('error', (err: Error) => webhookLogger.error(`error ${err}`, { e: renderError(err) }))
+			.on('failed', (job, err) => webhookLogger.warn(`failed(${err.stack}) ${getJobInfo(job)} to=${job ? job.data.to : '-'}`))
+			.on('error', (err: Error) => webhookLogger.error(`error ${err.stack}`, { error: renderError(err) }))
 			.on('stalled', (jobId) => webhookLogger.warn(`stalled id=${jobId}`));
 		//#endregion
 
@@ -278,11 +284,11 @@ export class QueueProcessorService implements OnApplicationShutdown {
 				default: throw new Error(`unrecognized job type ${job.name} for relationship`);
 			}
 		}, {
-			...baseQueueOptions(this.config, QUEUE.RELATIONSHIP),
+			...baseWorkerOptions(this.config.redisForRelationshipQueue, this.config.bullmqWorkerOptions, QUEUE.RELATIONSHIP),
 			autorun: false,
-			concurrency: this.config.relashionshipJobConcurrency ?? 16,
+			concurrency: this.config.relationshipJobConcurrency ?? 16,
 			limiter: {
-				max: this.config.relashionshipJobPerSec ?? 64,
+				max: this.config.relationshipJobPerSec ?? 64,
 				duration: 1000,
 			},
 		});
@@ -292,8 +298,8 @@ export class QueueProcessorService implements OnApplicationShutdown {
 		this.relationshipQueueWorker
 			.on('active', (job) => relationshipLogger.debug(`active id=${job.id}`))
 			.on('completed', (job, result) => relationshipLogger.debug(`completed(${result}) id=${job.id}`))
-			.on('failed', (job, err) => relationshipLogger.warn(`failed(${err}) id=${job ? job.id : '-'}`, { job, e: renderError(err) }))
-			.on('error', (err: Error) => relationshipLogger.error(`error ${err}`, { e: renderError(err) }))
+			.on('failed', (job, err) => relationshipLogger.warn(`failed(${err.stack}) id=${job ? job.id : '-'}`, { job, error: renderError(err) }))
+			.on('error', (err: Error) => relationshipLogger.error(`error ${err.stack}`, { error: renderError(err) }))
 			.on('stalled', (jobId) => relationshipLogger.warn(`stalled id=${jobId}`));
 		//#endregion
 
@@ -305,7 +311,7 @@ export class QueueProcessorService implements OnApplicationShutdown {
 				default: throw new Error(`unrecognized job type ${job.name} for objectStorage`);
 			}
 		}, {
-			...baseQueueOptions(this.config, QUEUE.OBJECT_STORAGE),
+			...baseWorkerOptions(this.config.redisForObjectStorageQueue, this.config.bullmqWorkerOptions, QUEUE.OBJECT_STORAGE),
 			autorun: false,
 			concurrency: 16,
 		});
@@ -315,14 +321,14 @@ export class QueueProcessorService implements OnApplicationShutdown {
 		this.objectStorageQueueWorker
 			.on('active', (job) => objectStorageLogger.debug(`active id=${job.id}`))
 			.on('completed', (job, result) => objectStorageLogger.debug(`completed(${result}) id=${job.id}`))
-			.on('failed', (job, err) => objectStorageLogger.warn(`failed(${err}) id=${job ? job.id : '-'}`, { job, e: renderError(err) }))
-			.on('error', (err: Error) => objectStorageLogger.error(`error ${err}`, { e: renderError(err) }))
+			.on('failed', (job, err) => objectStorageLogger.warn(`failed(${err.stack}) id=${job ? job.id : '-'}`, { job, error: renderError(err) }))
+			.on('error', (err: Error) => objectStorageLogger.error(`error ${err.stack}`, { error: renderError(err) }))
 			.on('stalled', (jobId) => objectStorageLogger.warn(`stalled id=${jobId}`));
 		//#endregion
 
 		//#region ended poll notification
 		this.endedPollNotificationQueueWorker = new Bull.Worker(QUEUE.ENDED_POLL_NOTIFICATION, (job) => this.endedPollNotificationProcessorService.process(job), {
-			...baseQueueOptions(this.config, QUEUE.ENDED_POLL_NOTIFICATION),
+			...baseWorkerOptions(this.config.redisForEndedPollNotificationQueue, this.config.bullmqWorkerOptions, QUEUE.ENDED_POLL_NOTIFICATION),
 			autorun: false,
 		});
 		//#endregion

@@ -1,5 +1,5 @@
 /*
- * SPDX-FileCopyrightText: syuilo and other misskey contributors
+ * SPDX-FileCopyrightText: syuilo and misskey-project
  * SPDX-License-Identifier: AGPL-3.0-only
  */
 
@@ -7,7 +7,7 @@ import { randomUUID } from 'node:crypto';
 import * as fs from 'node:fs';
 import { Inject, Injectable } from '@nestjs/common';
 import sharp from 'sharp';
-import { sharpBmp } from 'sharp-read-bmp';
+import { sharpBmp } from '@misskey-dev/sharp-read-bmp';
 import { IsNull } from 'typeorm';
 import { DeleteObjectCommandInput, PutObjectCommandInput, NoSuchKey } from '@aws-sdk/client-s3';
 import { DI } from '@/di-symbols.js';
@@ -399,7 +399,7 @@ export class DriveService {
 				})
 			.catch(
 				err => {
-					this.registerLogger.error(`Upload Failed: key = ${key}, filename = ${filename}`, err);
+					this.registerLogger.error(`Upload Failed: key = ${key}, filename = ${filename}`, { error: err });
 				},
 			);
 	}
@@ -455,15 +455,14 @@ export class DriveService {
 	}: AddFileArgs): Promise<MiDriveFile> {
 		let skipNsfwCheck = false;
 		const instance = await this.metaService.fetch();
-		const userRoleNSFW = user && (await this.roleService.getUserPolicies(user.id)).alwaysMarkNsfw;
-		if (user == null) {
-			skipNsfwCheck = true;
-		} else if (userRoleNSFW) {
-			skipNsfwCheck = true;
-		}
-		if (instance.sensitiveMediaDetection === 'none') skipNsfwCheck = true;
-		if (user && instance.sensitiveMediaDetection === 'local' && this.userEntityService.isRemoteUser(user)) skipNsfwCheck = true;
-		if (user && instance.sensitiveMediaDetection === 'remote' && this.userEntityService.isLocalUser(user)) skipNsfwCheck = true;
+		const policies = user && await this.roleService.getUserPolicies(user.id);
+		const userRoleNSFW = policies?.alwaysMarkNsfw;
+		skipNsfwCheck ||= user == null;
+		skipNsfwCheck ||= !!userRoleNSFW;
+		skipNsfwCheck ||= !!policies?.skipNsfwDetection;
+		skipNsfwCheck ||= instance.sensitiveMediaDetection === 'none';
+		skipNsfwCheck ||= !!(user && instance.sensitiveMediaDetection === 'local' && this.userEntityService.isRemoteUser(user));
+		skipNsfwCheck ||= !!(user && instance.sensitiveMediaDetection === 'remote' && this.userEntityService.isLocalUser(user));
 
 		const info = await this.fileInfoService.getFileInfo(path, {
 			skipSensitiveDetection: skipNsfwCheck,
@@ -507,11 +506,10 @@ export class DriveService {
 		this.registerLogger.debug(`ADD DRIVE FILE: user ${user?.id ?? 'not set'}, name ${detectedName}, tmp ${path}`);
 
 		//#region Check drive usage
-		if (user && !isLink) {
+		if (user && policies && !isLink) {
 			const usage = await this.driveFileEntityService.calcDriveUsageOf(user);
 			const isLocalUser = this.userEntityService.isLocalUser(user);
 
-			const policies = await this.roleService.getUserPolicies(user.id);
 			const driveCapacity = 1024 * 1024 * policies.driveCapacityMb;
 			this.registerLogger.debug('drive capacity override applied');
 			this.registerLogger.debug(`overrideCap: ${driveCapacity}bytes, usage: ${usage}bytes, u+s: ${usage + info.size}bytes`);
@@ -519,7 +517,7 @@ export class DriveService {
 			// If usage limit exceeded
 			if (driveCapacity < usage + info.size) {
 				if (isLocalUser) {
-					throw new IdentifiableError('c6244ed2-a39a-4e1c-bf93-f0fbd7764fa6', 'No free space.');
+					throw new IdentifiableError('c6244ed2-a39a-4e1c-bf93-f0fbd7764fa6', 'No free space in drive.');
 				}
 				await this.expireOldFile(await this.usersRepository.findOneByOrFail({ id: user.id }) as MiRemoteUser, driveCapacity - info.size);
 			}
@@ -616,7 +614,7 @@ export class DriveService {
 						userId: user ? user.id : IsNull(),
 					}) as MiDriveFile;
 				} else {
-					this.registerLogger.error(err as Error);
+					this.registerLogger.error(`failed to register ${file.uri}`, { error: err });
 					throw err;
 				}
 			}
@@ -627,7 +625,7 @@ export class DriveService {
 		this.registerLogger.succ(`drive file has been created ${file.id}`);
 
 		if (user) {
-			this.driveFileEntityService.pack(file, { self: true }).then(packedFile => {
+			this.driveFileEntityService.pack(file, user, { self: true }).then(packedFile => {
 				// Publish driveFileCreated event
 				this.globalEventService.publishMainStream(user.id, 'driveFileCreated', packedFile);
 				this.globalEventService.publishDriveStream(user.id, 'fileCreated', packedFile);
@@ -651,7 +649,7 @@ export class DriveService {
 	public async updateFile(file: MiDriveFile, values: Partial<MiDriveFile>, updater: MiUser) {
 		const alwaysMarkNsfw = (await this.roleService.getUserPolicies(file.userId)).alwaysMarkNsfw;
 
-		if (values.name && !this.driveFileEntityService.validateFileName(file.name)) {
+		if (values.name != null && !this.driveFileEntityService.validateFileName(values.name)) {
 			throw new DriveService.InvalidFileNameError();
 		}
 
@@ -672,7 +670,7 @@ export class DriveService {
 
 		await this.driveFilesRepository.update(file.id, values);
 
-		const fileObj = await this.driveFileEntityService.pack(file.id, { self: true });
+		const fileObj = await this.driveFileEntityService.pack(file.id, updater, { self: true });
 
 		// Publish fileUpdated event
 		if (file.userId) {
@@ -858,7 +856,7 @@ export class DriveService {
 		} catch (err) {
 			this.downloaderLogger.error(`Failed to create drive file: ${err}`, {
 				url: url,
-				e: err,
+				error: err,
 			});
 			throw err;
 		} finally {

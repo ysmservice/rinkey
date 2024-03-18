@@ -1,5 +1,5 @@
 /*
- * SPDX-FileCopyrightText: syuilo and other misskey contributors
+ * SPDX-FileCopyrightText: syuilo and misskey-project
  * SPDX-License-Identifier: AGPL-3.0-only
  */
 
@@ -17,6 +17,7 @@ import { MetaService } from '@/core/MetaService.js';
 import { createTemp } from '@/misc/create-temp.js';
 import { bindThis } from '@/decorators.js';
 import { RoleService } from '@/core/RoleService.js';
+import { IdentifiableError } from '@/misc/identifiable-error.js';
 import { ApiError } from './error.js';
 import { RateLimiterService } from './RateLimiterService.js';
 import { ApiLoggerService } from './ApiLoggerService.js';
@@ -84,7 +85,12 @@ export class ApiCallService implements OnApplicationShutdown {
 				id: 'b0a7f5f8-dc2f-4171-b91f-de88ad238e14',
 			}));
 		} else {
-			this.send(reply, 500, new ApiError());
+			this.#sendApiError(reply, new ApiError({
+				message: 'Internal error occurred. Please contact us if the error persists.',
+				code: 'INTERNAL_ERROR',
+				id: '5d37dbcb-891e-41ca-a3d6-e690c97775ac',
+				kind: 'server',
+			}));
 		}
 	}
 
@@ -330,7 +336,8 @@ export class ApiCallService implements OnApplicationShutdown {
 			}
 		}
 
-		if (token && ep.meta.kind && !token.permission.some(p => p === ep.meta.kind)) {
+		if (token && ((ep.meta.kind && !token.permission.some(p => p === ep.meta.kind))
+			|| (!ep.meta.kind && (ep.meta.requireCredential || ep.meta.requireModerator || ep.meta.requireAdmin)))) {
 			throw new ApiError({
 				message: 'Your app does not have the necessary permissions to use this endpoint.',
 				code: 'PERMISSION_DENIED',
@@ -364,26 +371,58 @@ export class ApiCallService implements OnApplicationShutdown {
 		return await ep.exec(data, user, token, file, request.ip, request.headers).catch((err: Error) => {
 			if (err instanceof ApiError || err instanceof AuthenticationError) {
 				throw err;
+			} else if (err instanceof IdentifiableError) {
+				this.logger.error(`Internal error occurred in ${ep.name}: ${err.message}`, {
+					ep: ep.name,
+					ps: data,
+					id: err.id,
+					error: {
+						message: err.message,
+						code: 'INTERNAL_ERROR',
+						stack: err.stack,
+					},
+				});
+				throw new ApiError(
+					{
+						message: err.message,
+						code: 'INTERNAL_ERROR',
+						id: err.id,
+					},
+					{
+						e: {
+							message: err.message,
+							code: err.name,
+							id: err.id,
+						},
+					},
+				);
 			} else {
 				const errId = randomUUID();
 				this.logger.error(`Internal error occurred in ${ep.name}: ${err.message}`, {
 					ep: ep.name,
 					ps: data,
-					e: {
+					id: errId,
+					error: {
 						message: err.message,
 						code: err.name,
 						stack: err.stack,
-						id: errId,
 					},
 				});
-				console.error(err, errId);
-				throw new ApiError(null, {
-					e: {
-						message: err.message,
-						code: err.name,
-						id: errId,
+				throw new ApiError(
+					{
+						message: 'Internal error occurred. Please contact us if the error persists.',
+						code: 'INTERNAL_ERROR',
+						id: '5d37dbcb-891e-41ca-a3d6-e690c97775ac',
+						kind: 'server',
 					},
-				});
+					{
+						e: {
+							message: err.message,
+							code: err.name,
+							id: errId,
+						},
+					},
+				);
 			}
 		});
 	}

@@ -1,5 +1,5 @@
 /*
- * SPDX-FileCopyrightText: syuilo and other misskey contributors
+ * SPDX-FileCopyrightText: syuilo and misskey-project
  * SPDX-License-Identifier: AGPL-3.0-only
  */
 
@@ -79,7 +79,17 @@ export class MiMeta {
 	@Column('varchar', {
 		length: 1024, array: true, default: '{}',
 	})
+	public prohibitedWords: string[];
+
+	@Column('varchar', {
+		length: 1024, array: true, default: '{}',
+	})
 	public silencedHosts: string[];
+
+	@Column('varchar', {
+		length: 1024, array: true, default: '{}',
+	})
+	public sensitiveMediaHosts: string[];
 
 	@Column('varchar', {
 		length: 1024,
@@ -147,16 +157,6 @@ export class MiMeta {
 	})
 	public infoImageUrl: string | null;
 
-	@Column('boolean', {
-		default: false,
-	})
-	public cacheRemoteFiles: boolean;
-
-	@Column('boolean', {
-		default: true,
-	})
-	public cacheRemoteSensitiveFiles: boolean;
-
 	@Column({
 		...id(),
 		nullable: true,
@@ -194,6 +194,29 @@ export class MiMeta {
 	@Column('boolean', {
 		default: false,
 	})
+	public enableMcaptcha: boolean;
+
+	@Column('varchar', {
+		length: 1024,
+		nullable: true,
+	})
+	public mcaptchaSitekey: string | null;
+
+	@Column('varchar', {
+		length: 1024,
+		nullable: true,
+	})
+	public mcaptchaSecretKey: string | null;
+
+	@Column('varchar', {
+		length: 1024,
+		nullable: true,
+	})
+	public mcaptchaInstanceUrl: string | null;
+
+	@Column('boolean', {
+		default: false,
+	})
 	public enableRecaptcha: boolean;
 
 	@Column('varchar', {
@@ -224,6 +247,8 @@ export class MiMeta {
 		nullable: true,
 	})
 	public turnstileSecretKey: string | null;
+
+	// chaptcha系を追加した際にはnodeinfoのレスポンスに追加するのを忘れないようにすること
 
 	@Column('enum', {
 		enum: ['none', 'all', 'local', 'remote'],
@@ -329,9 +354,9 @@ export class MiMeta {
 	@Column('varchar', {
 		length: 1024,
 		default: 'https://github.com/misskey-dev/misskey',
-		nullable: false,
+		nullable: true,
 	})
-	public repositoryUrl: string;
+	public repositoryUrl: string | null;
 
 	@Column('varchar', {
 		length: 1024,
@@ -386,6 +411,23 @@ export class MiMeta {
 	public verifymailAuthKey: string | null;
 
 	@Column('boolean', {
+		default: false,
+	})
+	public enableTruemailApi: boolean;
+
+	@Column('varchar', {
+		length: 1024,
+		nullable: true,
+	})
+	public truemailInstance: string | null;
+
+	@Column('varchar', {
+		length: 1024,
+		nullable: true,
+	})
+	public truemailAuthKey: string | null;
+
+	@Column('boolean', {
 		default: true,
 	})
 	public enableChartsForRemoteUser: boolean;
@@ -422,6 +464,13 @@ export class MiMeta {
 		default: '{}',
 	})
 	public manifestJsonOverride: string;
+
+	@Column('varchar', {
+		length: 1024,
+		array: true,
+		default: '{}',
+	})
+	public bannedEmailDomains: string[];
 
 	@Column('varchar', {
 		length: 1024, array: true, default: '{ "admin", "administrator", "root", "system", "maintainer", "host", "mod", "moderator", "owner", "superuser", "staff", "auth", "i", "me", "everyone", "all", "mention", "mentions", "example", "user", "users", "account", "accounts", "official", "help", "helps", "support", "supports", "info", "information", "informations", "announce", "announces", "announcement", "announcements", "notice", "notification", "notifications", "dev", "developer", "developers", "tech", "misskey" }',
@@ -462,4 +511,14 @@ export class MiMeta {
 		default: 0,
 	})
 	public notesPerOneAd: number;
+
+	@Column('varchar', {
+		length: 3072, array: true, default: '{}',
+	})
+	public urlPreviewDenyList: string[];
+
+	@Column('varchar', {
+		length: 1024, array: true, default: '{}',
+	})
+	public featuredGameChannels: string[];
 }

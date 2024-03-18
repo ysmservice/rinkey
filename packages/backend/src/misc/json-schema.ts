@@ -1,5 +1,5 @@
 /*
- * SPDX-FileCopyrightText: syuilo and other misskey contributors
+ * SPDX-FileCopyrightText: syuilo and misskey-project
  * SPDX-License-Identifier: AGPL-3.0-only
  */
 
@@ -12,30 +12,52 @@ import {
 	packedUserDetailedSchema,
 	packedUserSchema,
 } from '@/models/json-schema/user.js';
-import { packedNoteSchema } from '@/models/json-schema/note.js';
-import { packedUserListSchema } from '@/models/json-schema/user-list.js';
+import { packedAbuseUserReportSchema } from '@/models/json-schema/abuse-user-report.js';
+import { packedAntennaSchema } from '@/models/json-schema/antenna.js';
 import { packedAppSchema } from '@/models/json-schema/app.js';
-import { packedNotificationSchema } from '@/models/json-schema/notification.js';
+import { packedBlockingSchema } from '@/models/json-schema/blocking.js';
+import { packedChannelSchema } from '@/models/json-schema/channel.js';
+import { packedClipSchema } from '@/models/json-schema/clip.js';
 import { packedDriveFileSchema } from '@/models/json-schema/drive-file.js';
 import { packedDriveFolderSchema } from '@/models/json-schema/drive-folder.js';
-import { packedFollowingSchema } from '@/models/json-schema/following.js';
-import { packedMutingSchema } from '@/models/json-schema/muting.js';
-import { packedRenoteMutingSchema } from '@/models/json-schema/renote-muting.js';
-import { packedBlockingSchema } from '@/models/json-schema/blocking.js';
-import { packedNoteReactionSchema } from '@/models/json-schema/note-reaction.js';
+import { packedFederationInstanceSchema } from '@/models/json-schema/federation-instance.js';
+import { packedFlashLikeSchema, packedFlashSchema } from '@/models/json-schema/flash.js';
+import { packedFollowRequestSchema, packedFollowingSchema } from '@/models/json-schema/following.js';
+import { packedGalleryLikeSchema, packedGalleryPostSchema } from '@/models/json-schema/gallery.js';
 import { packedHashtagSchema } from '@/models/json-schema/hashtag.js';
 import { packedInviteCodeSchema } from '@/models/json-schema/invite-code.js';
-import { packedPageSchema } from '@/models/json-schema/page.js';
+import { packedModerationLogSchema } from '@/models/json-schema/moderation-log.js';
+import { packedMutingSchema } from '@/models/json-schema/muting.js';
 import { packedNoteFavoriteSchema } from '@/models/json-schema/note-favorite.js';
-import { packedChannelSchema } from '@/models/json-schema/channel.js';
-import { packedAntennaSchema } from '@/models/json-schema/antenna.js';
-import { packedClipSchema } from '@/models/json-schema/clip.js';
-import { packedFederationInstanceSchema } from '@/models/json-schema/federation-instance.js';
+import { packedNoteReactionSchema } from '@/models/json-schema/note-reaction.js';
+import { packedNoteSchema } from '@/models/json-schema/note.js';
+import { packedNotificationSchema } from '@/models/json-schema/notification.js';
+import { packedPageLikeSchema, packedPageBlockSchema, packedPageSchema } from '@/models/json-schema/page.js';
 import { packedQueueCountSchema } from '@/models/json-schema/queue.js';
-import { packedGalleryPostSchema } from '@/models/json-schema/gallery-post.js';
 import { packedEmojiDetailedSchema, packedEmojiSimpleSchema } from '@/models/json-schema/emoji.js';
-import { packedFlashSchema } from '@/models/json-schema/flash.js';
+import { packedRenoteMutingSchema } from '@/models/json-schema/renote-muting.js';
+import { packedUserListMembershipSchema, packedUserListSchema } from '@/models/json-schema/user-list.js';
 import { packedAnnouncementSchema } from '@/models/json-schema/announcement.js';
+import { packedSigninSchema } from '@/models/json-schema/signin.js';
+import {
+	packedRoleLiteSchema,
+	packedRoleSchema,
+	packedRolePoliciesSchema,
+	packedRoleCondFormulaLogicsSchema,
+	packedRoleCondFormulaValueNot,
+	packedRoleCondFormulaValueIsLocalOrRemoteSchema,
+	packedRoleCondFormulaValueAssignedRoleSchema,
+	packedRoleCondFormulaValueCreatedSchema,
+	packedRoleCondFormulaFollowersOrFollowingOrNotesSchema,
+	packedRoleCondFormulaValueSchema,
+} from '@/models/json-schema/role.js';
+import { packedAdSchema } from '@/models/json-schema/ad.js';
+import { packedReversiGameLiteSchema, packedReversiGameDetailedSchema } from '@/models/json-schema/reversi-game.js';
+import {
+	packedMetaLiteSchema,
+	packedMetaDetailedOnlySchema,
+	packedMetaDetailedSchema,
+} from '@/models/json-schema/meta.js';
 
 export const refs = {
 	UserLite: packedUserLiteSchema,
@@ -47,6 +69,8 @@ export const refs = {
 	User: packedUserSchema,
 
 	UserList: packedUserListSchema,
+	UserListMembership: packedUserListMembershipSchema,
+	Ad: packedAdSchema,
 	Announcement: packedAnnouncementSchema,
 	App: packedAppSchema,
 	Note: packedNoteSchema,
@@ -56,24 +80,51 @@ export const refs = {
 	DriveFile: packedDriveFileSchema,
 	DriveFolder: packedDriveFolderSchema,
 	Following: packedFollowingSchema,
+	FollowRequest: packedFollowRequestSchema,
 	Muting: packedMutingSchema,
 	RenoteMuting: packedRenoteMutingSchema,
 	Blocking: packedBlockingSchema,
 	Hashtag: packedHashtagSchema,
 	InviteCode: packedInviteCodeSchema,
 	Page: packedPageSchema,
+	PageBlock: packedPageBlockSchema,
+	PageLike: packedPageLikeSchema,
 	Channel: packedChannelSchema,
 	QueueCount: packedQueueCountSchema,
 	Antenna: packedAntennaSchema,
 	Clip: packedClipSchema,
 	FederationInstance: packedFederationInstanceSchema,
 	GalleryPost: packedGalleryPostSchema,
+	GalleryLike: packedGalleryLikeSchema,
 	EmojiSimple: packedEmojiSimpleSchema,
 	EmojiDetailed: packedEmojiDetailedSchema,
 	Flash: packedFlashSchema,
+	FlashLike: packedFlashLikeSchema,
+
+	Signin: packedSigninSchema,
+	RoleCondFormulaLogics: packedRoleCondFormulaLogicsSchema,
+	RoleCondFormulaValueNot: packedRoleCondFormulaValueNot,
+	RoleCondFormulaValueIsLocalOrRemote: packedRoleCondFormulaValueIsLocalOrRemoteSchema,
+	RoleCondFormulaValueAssignedRole: packedRoleCondFormulaValueAssignedRoleSchema,
+	RoleCondFormulaValueCreated: packedRoleCondFormulaValueCreatedSchema,
+	RoleCondFormulaFollowersOrFollowingOrNotes: packedRoleCondFormulaFollowersOrFollowingOrNotesSchema,
+	RoleCondFormulaValue: packedRoleCondFormulaValueSchema,
+	RoleLite: packedRoleLiteSchema,
+	Role: packedRoleSchema,
+	RolePolicies: packedRolePoliciesSchema,
+	ReversiGameLite: packedReversiGameLiteSchema,
+	ReversiGameDetailed: packedReversiGameDetailedSchema,
+	MetaLite: packedMetaLiteSchema,
+	MetaDetailedOnly: packedMetaDetailedOnlySchema,
+	MetaDetailed: packedMetaDetailedSchema,
+	AbuseUserReport: packedAbuseUserReportSchema,
+	ModerationLog: packedModerationLogSchema,
 };
 
 export type Packed<x extends keyof typeof refs> = SchemaType<typeof refs[x]>;
+
+export type KeyOf<x extends keyof typeof refs> = PropertiesToUnion<typeof refs[x]>;
+type PropertiesToUnion<p extends Schema> = p['properties'] extends NonNullable<Obj> ? keyof p['properties'] : never;
 
 type TypeStringef = 'null' | 'boolean' | 'integer' | 'number' | 'string' | 'array' | 'object' | 'any';
 type StringDefToType<T extends TypeStringef> =
@@ -104,6 +155,7 @@ export interface Schema extends OfSchema {
 	readonly example?: any;
 	readonly format?: string;
 	readonly ref?: keyof typeof refs;
+	readonly selfRef?: boolean;
 	readonly enum?: ReadonlyArray<string | null>;
 	readonly default?: (this['type'] extends TypeStringef ? StringDefToType<this['type']> : any) | null;
 	readonly maxLength?: number;

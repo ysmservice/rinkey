@@ -1,5 +1,5 @@
 /*
- * SPDX-FileCopyrightText: syuilo and other misskey contributors
+ * SPDX-FileCopyrightText: syuilo and misskey-project
  * SPDX-License-Identifier: AGPL-3.0-only
  */
 
@@ -15,6 +15,7 @@ export const DI = {
 	//#region Repositories
 	usersRepository: Symbol('usersRepository'),
 	notesRepository: Symbol('notesRepository'),
+	abuseReportResolversRepository: Symbol('abuseReportResolversRepository'),
 	announcementsRepository: Symbol('announcementsRepository'),
 	announcementReadsRepository: Symbol('announcementReadsRepository'),
 	appsRepository: Symbol('appsRepository'),
@@ -48,11 +49,13 @@ export const DI = {
 	blockingsRepository: Symbol('blockingsRepository'),
 	swSubscriptionsRepository: Symbol('swSubscriptionsRepository'),
 	hashtagsRepository: Symbol('hashtagsRepository'),
+	indieAuthClientsRepository: Symbol('indieAuthClientsRepository'),
 	abuseUserReportsRepository: Symbol('abuseUserReportsRepository'),
 	registrationTicketsRepository: Symbol('registrationTicketsRepository'),
 	authSessionsRepository: Symbol('authSessionsRepository'),
 	accessTokensRepository: Symbol('accessTokensRepository'),
 	signinsRepository: Symbol('signinsRepository'),
+	singleSignOnServiceProviderRepository: Symbol('singleSignOnServiceProviderRepository'),
 	pagesRepository: Symbol('pagesRepository'),
 	pageLikesRepository: Symbol('pageLikesRepository'),
 	galleryPostsRepository: Symbol('galleryPostsRepository'),
@@ -78,5 +81,7 @@ export const DI = {
 	flashsRepository: Symbol('flashsRepository'),
 	flashLikesRepository: Symbol('flashLikesRepository'),
 	userMemosRepository: Symbol('userMemosRepository'),
+	bubbleGameRecordsRepository: Symbol('bubbleGameRecordsRepository'),
+	reversiGamesRepository: Symbol('reversiGamesRepository'),
 	//#endregion
 };

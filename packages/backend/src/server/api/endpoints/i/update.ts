@@ -1,5 +1,5 @@
 /*
- * SPDX-FileCopyrightText: syuilo and other misskey contributors
+ * SPDX-FileCopyrightText: syuilo and misskey-project
  * SPDX-License-Identifier: AGPL-3.0-only
  */
 
@@ -15,7 +15,6 @@ import type { UsersRepository, DriveFilesRepository, UserProfilesRepository, Pag
 import type { MiLocalUser, MiUser } from '@/models/User.js';
 import { birthdaySchema, descriptionSchema, locationSchema, nameSchema } from '@/models/User.js';
 import type { MiUserProfile } from '@/models/UserProfile.js';
-import { notificationTypes } from '@/types.js';
 import { normalizeForSearch } from '@/misc/normalize-for-search.js';
 import { langmap } from '@/misc/langmap.js';
 import { Endpoint } from '@/server/api/endpoint-base.js';
@@ -33,6 +32,7 @@ import { HttpRequestService } from '@/core/HttpRequestService.js';
 import type { Config } from '@/config.js';
 import { safeForSql } from '@/misc/safe-for-sql.js';
 import { AvatarDecorationService } from '@/core/AvatarDecorationService.js';
+import { notificationRecieveConfig } from '@/models/json-schema/user.js';
 import { ApiLoggerService } from '../../ApiLoggerService.js';
 import { ApiError } from '../../error.js';
 
@@ -40,6 +40,7 @@ export const meta = {
 	tags: ['account'],
 
 	requireCredential: true,
+	requireRolePolicy: 'canUpdateContent',
 
 	kind: 'write:account',
 
@@ -132,12 +133,14 @@ export const paramDef = {
 		birthday: { ...birthdaySchema, nullable: true },
 		lang: { type: 'string', enum: [null, ...Object.keys(langmap)] as string[], nullable: true },
 		avatarId: { type: 'string', format: 'misskey:id', nullable: true },
-		avatarDecorations: { type: 'array', maxItems: 1, items: {
+		avatarDecorations: { type: 'array', maxItems: 16, items: {
 			type: 'object',
 			properties: {
 				id: { type: 'string', format: 'misskey:id' },
 				angle: { type: 'number', nullable: true, maximum: 0.5, minimum: -0.5 },
 				flipH: { type: 'boolean', nullable: true },
+				offsetX: { type: 'number', nullable: true, maximum: 0.25, minimum: -0.25 },
+				offsetY: { type: 'number', nullable: true, maximum: 0.25, minimum: -0.25 },
 			},
 			required: ['id'],
 		} },
@@ -169,13 +172,38 @@ export const paramDef = {
 		receiveAnnouncementEmail: { type: 'boolean' },
 		alwaysMarkNsfw: { type: 'boolean' },
 		autoSensitive: { type: 'boolean' },
-		ffVisibility: { type: 'string', enum: ['public', 'followers', 'private'] },
+		followingVisibility: { type: 'string', enum: ['public', 'followers', 'private'] },
+		followersVisibility: { type: 'string', enum: ['public', 'followers', 'private'] },
 		pinnedPageId: { type: 'string', format: 'misskey:id', nullable: true },
-		mutedWords: { type: 'array' },
+		mutedWords: { type: 'array', items: {
+			oneOf: [
+				{ type: 'array', items: { type: 'string' } },
+				{ type: 'string' }
+			]
+		} },
 		mutedInstances: { type: 'array', items: {
 			type: 'string',
 		} },
-		notificationRecieveConfig: { type: 'object' },
+		notificationRecieveConfig: {
+			type: 'object',
+			nullable: false,
+			properties: {
+				note: notificationRecieveConfig,
+				follow: notificationRecieveConfig,
+				mention: notificationRecieveConfig,
+				reply: notificationRecieveConfig,
+				renote: notificationRecieveConfig,
+				quote: notificationRecieveConfig,
+				reaction: notificationRecieveConfig,
+				pollEnded: notificationRecieveConfig,
+				receiveFollowRequest: notificationRecieveConfig,
+				followRequestAccepted: notificationRecieveConfig,
+				roleAssigned: notificationRecieveConfig,
+				achievementEarned: notificationRecieveConfig,
+				app: notificationRecieveConfig,
+				test: notificationRecieveConfig,
+			},
+		},
 		emailNotificationTypes: { type: 'array', items: {
 			type: 'string',
 		} },
@@ -225,6 +253,7 @@ export default class extends Endpoint<typeof meta, typeof paramDef> { // eslint-
 
 			const updates = {} as Partial<MiUser>;
 			const profileUpdates = {} as Partial<MiUserProfile>;
+			const policy = await this.roleService.getUserPolicies(user.id);
 
 			const profile = await this.userProfilesRepository.findOneByOrFail({ userId: user.id });
 
@@ -233,16 +262,17 @@ export default class extends Endpoint<typeof meta, typeof paramDef> { // eslint-
 			if (ps.lang !== undefined) profileUpdates.lang = ps.lang;
 			if (ps.location !== undefined) profileUpdates.location = ps.location;
 			if (ps.birthday !== undefined) profileUpdates.birthday = ps.birthday;
-			if (ps.ffVisibility !== undefined) profileUpdates.ffVisibility = ps.ffVisibility;
+			if (ps.followingVisibility !== undefined) profileUpdates.followingVisibility = ps.followingVisibility;
+			if (ps.followersVisibility !== undefined) profileUpdates.followersVisibility = ps.followersVisibility;
 			if (ps.mutedWords !== undefined) {
 				const length = ps.mutedWords.length;
-				if (length > (await this.roleService.getUserPolicies(user.id)).wordMuteLimit) {
+				if (length > policy.wordMuteLimit) {
 					throw new ApiError(meta.errors.tooManyMutedWords);
 				}
 
 				// validate regular expression syntax
 				ps.mutedWords.filter(x => !Array.isArray(x)).forEach(x => {
-					const regexp = x.match(/^\/(.+)\/(.*)$/);
+					const regexp = RegExp(/^\/(.+)\/(.*)$/).exec(x as string);
 					if (!regexp) throw new ApiError(meta.errors.invalidRegexp);
 
 					try {
@@ -270,13 +300,14 @@ export default class extends Endpoint<typeof meta, typeof paramDef> { // eslint-
 			if (typeof ps.injectFeaturedNote === 'boolean') profileUpdates.injectFeaturedNote = ps.injectFeaturedNote;
 			if (typeof ps.receiveAnnouncementEmail === 'boolean') profileUpdates.receiveAnnouncementEmail = ps.receiveAnnouncementEmail;
 			if (typeof ps.alwaysMarkNsfw === 'boolean') {
-				if ((await roleService.getUserPolicies(user.id)).alwaysMarkNsfw) throw new ApiError(meta.errors.restrictedByRole);
+				if (policy.alwaysMarkNsfw) throw new ApiError(meta.errors.restrictedByRole);
 				profileUpdates.alwaysMarkNsfw = ps.alwaysMarkNsfw;
 			}
 			if (typeof ps.autoSensitive === 'boolean') profileUpdates.autoSensitive = ps.autoSensitive;
 			if (ps.emailNotificationTypes !== undefined) profileUpdates.emailNotificationTypes = ps.emailNotificationTypes;
 
 			if (ps.avatarId) {
+				if (!policy.canUpdateAvatar) throw new ApiError(meta.errors.restrictedByRole);
 				const avatar = await this.driveFilesRepository.findOneBy({ id: ps.avatarId });
 
 				if (avatar == null || avatar.userId !== user.id) throw new ApiError(meta.errors.noSuchAvatar);
@@ -292,6 +323,7 @@ export default class extends Endpoint<typeof meta, typeof paramDef> { // eslint-
 			}
 
 			if (ps.bannerId) {
+				if (!policy.canUpdateBanner) throw new ApiError(meta.errors.restrictedByRole);
 				const banner = await this.driveFilesRepository.findOneBy({ id: ps.bannerId });
 
 				if (banner == null || banner.userId !== user.id) throw new ApiError(meta.errors.noSuchBanner);
@@ -314,10 +346,14 @@ export default class extends Endpoint<typeof meta, typeof paramDef> { // eslint-
 					.filter(d => d.roleIdsThatCanBeUsedThisDecoration.filter(roleId => allRoles.some(r => r.id === roleId)).length === 0 || myRoles.some(r => d.roleIdsThatCanBeUsedThisDecoration.includes(r.id)))
 					.map(d => d.id);
 
+				if (ps.avatarDecorations.length > policy.avatarDecorationLimit) throw new ApiError(meta.errors.restrictedByRole);
+
 				updates.avatarDecorations = ps.avatarDecorations.filter(d => decorationIds.includes(d.id)).map(d => ({
 					id: d.id,
 					angle: d.angle ?? 0,
 					flipH: d.flipH ?? false,
+					offsetX: d.offsetX ?? 0,
+					offsetY: d.offsetY ?? 0,
 				}));
 			}
 
@@ -407,9 +443,9 @@ export default class extends Endpoint<typeof meta, typeof paramDef> { // eslint-
 			this.hashtagService.updateUsertags(user, tags);
 			//#endregion
 
-			if (Object.keys(updates).length > 0) await this.usersRepository.update(user.id, updates);
-			if (Object.keys(updates).includes('alsoKnownAs')) {
-				this.cacheService.uriPersonCache.set(this.userEntityService.genLocalUserUri(user.id), { ...user, ...updates });
+			if (Object.keys(updates).length > 0) {
+				await this.usersRepository.update(user.id, updates);
+				this.globalEventService.publishInternalEvent('localUserUpdated', { id: user.id });
 			}
 
 			await this.userProfilesRepository.update(user.id, {
@@ -417,8 +453,8 @@ export default class extends Endpoint<typeof meta, typeof paramDef> { // eslint-
 				verifiedLinks: [],
 			});
 
-			const iObj = await this.userEntityService.pack<true, true>(user.id, user, {
-				detail: true,
+			const iObj = await this.userEntityService.pack(user.id, user, {
+				schema: 'MeDetailed',
 				includeSecrets: isSecure,
 			});
 

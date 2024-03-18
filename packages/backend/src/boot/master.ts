@@ -1,5 +1,5 @@
 /*
- * SPDX-FileCopyrightText: syuilo and other misskey contributors
+ * SPDX-FileCopyrightText: syuilo and misskey-project
  * SPDX-License-Identifier: AGPL-3.0-only
  */
 
@@ -28,7 +28,7 @@ const bootLogger = logger.createSubLogger('boot', 'magenta', false);
 const themeColor = chalk.hex('#86b300');
 
 function greet() {
-	if (!envOption.quiet) {
+	if (!envOption.quiet && !envOption.logJson) {
 		//#region Misskey logo
 		const v = `v${meta.version}`;
 		console.log(themeColor('  _____ _         _           '));
@@ -46,7 +46,7 @@ function greet() {
 	}
 
 	bootLogger.info('Welcome to Misskey!');
-	bootLogger.info(`Misskey v${meta.version}`, null, true);
+	bootLogger.info(`Misskey v${meta.version}`, { version: meta.version, hostname: os.hostname(), pid: process.pid }, true);
 }
 
 /**
@@ -65,7 +65,7 @@ export async function masterMain() {
 		//await connectDb();
 		if (config.pidFile) fs.writeFileSync(config.pidFile, process.pid.toString());
 	} catch (e) {
-		bootLogger.error('Fatal error occurred during initialization', null, true);
+		bootLogger.error('Fatal error occurred during initialization', { error: e }, true);
 		process.exit(1);
 	}
 
@@ -124,7 +124,7 @@ function loadConfigBoot(): Config {
 		config = loadConfig();
 	} catch (exception) {
 		if (typeof exception === 'string') {
-			configLogger.error(exception);
+			configLogger.error(exception, null, true);
 			process.exit(1);
 		} else if ((exception as any).code === 'ENOENT') {
 			configLogger.error('Configuration file not found', null, true);

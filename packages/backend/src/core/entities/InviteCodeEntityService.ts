@@ -1,5 +1,5 @@
 /*
- * SPDX-FileCopyrightText: syuilo and other misskey contributors
+ * SPDX-FileCopyrightText: syuilo and misskey-project
  * SPDX-License-Identifier: AGPL-3.0-only
  */
 
@@ -28,7 +28,7 @@ export class InviteCodeEntityService {
 	@bindThis
 	public async pack(
 		src: MiRegistrationTicket['id'] | MiRegistrationTicket,
-		me?: { id: MiUser['id'] } | null | undefined,
+		me: { id: MiUser['id'] } | null | undefined,
 	): Promise<Packed<'InviteCode'>> {
 		const target = typeof src === 'object' ? src : await this.registrationTicketsRepository.findOneOrFail({
 			where: {
@@ -50,10 +50,12 @@ export class InviteCodeEntityService {
 	}
 
 	@bindThis
-	public packMany(
-		targets: any[],
+	public async packMany(
+		targets: (MiRegistrationTicket['id'] | MiRegistrationTicket)[],
 		me: { id: MiUser['id'] },
-	) {
-		return Promise.all(targets.map(x => this.pack(x, me)));
+	) : Promise<Packed<'InviteCode'>[]> {
+		return (await Promise.allSettled(targets.map(x => this.pack(x, me))))
+			.filter(result => result.status === 'fulfilled')
+			.map(result => (result as PromiseFulfilledResult<Packed<'InviteCode'>>).value);
 	}
 }

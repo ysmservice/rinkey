@@ -1,8 +1,9 @@
 /*
- * SPDX-FileCopyrightText: syuilo and other misskey contributors
+ * SPDX-FileCopyrightText: syuilo and misskey-project
  * SPDX-License-Identifier: AGPL-3.0-only
  */
 
+import { MiAbuseReportResolver } from '@/models/AbuseReportResolver.js';
 import { MiAbuseUserReport } from '@/models/AbuseUserReport.js';
 import { MiAccessToken } from '@/models/AccessToken.js';
 import { MiAd } from '@/models/Ad.js';
@@ -26,6 +27,7 @@ import { MiFollowRequest } from '@/models/FollowRequest.js';
 import { MiGalleryLike } from '@/models/GalleryLike.js';
 import { MiGalleryPost } from '@/models/GalleryPost.js';
 import { MiHashtag } from '@/models/Hashtag.js';
+import { MiIndieAuthClient } from '@/models/IndieAuthClient.js';
 import { MiInstance } from '@/models/Instance.js';
 import { MiMeta } from '@/models/Meta.js';
 import { MiModerationLog } from '@/models/ModerationLog.js';
@@ -47,6 +49,7 @@ import { MiRegistrationTicket } from '@/models/RegistrationTicket.js';
 import { MiRegistryItem } from '@/models/RegistryItem.js';
 import { MiRelay } from '@/models/Relay.js';
 import { MiSignin } from '@/models/Signin.js';
+import { MiSingleSignOnServiceProvider } from '@/models/SingleSignOnServiceProvider.js';
 import { MiSwSubscription } from '@/models/SwSubscription.js';
 import { MiUsedUsername } from '@/models/UsedUsername.js';
 import { MiUser } from '@/models/User.js';
@@ -68,9 +71,12 @@ import { MiRoleAssignment } from '@/models/RoleAssignment.js';
 import { MiFlash } from '@/models/Flash.js';
 import { MiFlashLike } from '@/models/FlashLike.js';
 import { MiUserListFavorite } from '@/models/UserListFavorite.js';
+import { MiBubbleGameRecord } from '@/models/BubbleGameRecord.js';
+import { MiReversiGame } from '@/models/ReversiGame.js';
 import type { Repository } from 'typeorm';
 
 export {
+	MiAbuseReportResolver,
 	MiAbuseUserReport,
 	MiAccessToken,
 	MiAd,
@@ -94,6 +100,7 @@ export {
 	MiGalleryLike,
 	MiGalleryPost,
 	MiHashtag,
+	MiIndieAuthClient,
 	MiInstance,
 	MiMeta,
 	MiModerationLog,
@@ -115,6 +122,7 @@ export {
 	MiRegistryItem,
 	MiRelay,
 	MiSignin,
+	MiSingleSignOnServiceProvider,
 	MiSwSubscription,
 	MiUsedUsername,
 	MiUser,
@@ -136,8 +144,11 @@ export {
 	MiFlash,
 	MiFlashLike,
 	MiUserMemo,
+	MiBubbleGameRecord,
+	MiReversiGame,
 };
 
+export type AbuseReportResolversRepository = Repository<MiAbuseReportResolver>;
 export type AbuseUserReportsRepository = Repository<MiAbuseUserReport>;
 export type AccessTokensRepository = Repository<MiAccessToken>;
 export type AdsRepository = Repository<MiAd>;
@@ -161,6 +172,7 @@ export type FollowRequestsRepository = Repository<MiFollowRequest>;
 export type GalleryLikesRepository = Repository<MiGalleryLike>;
 export type GalleryPostsRepository = Repository<MiGalleryPost>;
 export type HashtagsRepository = Repository<MiHashtag>;
+export type IndieAuthClientsRepository = Repository<MiIndieAuthClient>;
 export type InstancesRepository = Repository<MiInstance>;
 export type MetasRepository = Repository<MiMeta>;
 export type ModerationLogsRepository = Repository<MiModerationLog>;
@@ -182,6 +194,7 @@ export type RegistrationTicketsRepository = Repository<MiRegistrationTicket>;
 export type RegistryItemsRepository = Repository<MiRegistryItem>;
 export type RelaysRepository = Repository<MiRelay>;
 export type SigninsRepository = Repository<MiSignin>;
+export type SingleSignOnServiceProviderRepository = Repository<MiSingleSignOnServiceProvider>;
 export type SwSubscriptionsRepository = Repository<MiSwSubscription>;
 export type UsedUsernamesRepository = Repository<MiUsedUsername>;
 export type UsersRepository = Repository<MiUser>;
@@ -203,3 +216,5 @@ export type RoleAssignmentsRepository = Repository<MiRoleAssignment>;
 export type FlashsRepository = Repository<MiFlash>;
 export type FlashLikesRepository = Repository<MiFlashLike>;
 export type UserMemoRepository = Repository<MiUserMemo>;
+export type BubbleGameRecordsRepository = Repository<MiBubbleGameRecord>;
+export type ReversiGamesRepository = Repository<MiReversiGame>;

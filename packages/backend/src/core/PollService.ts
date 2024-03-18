@@ -1,5 +1,5 @@
 /*
- * SPDX-FileCopyrightText: syuilo and other misskey contributors
+ * SPDX-FileCopyrightText: syuilo and misskey-project
  * SPDX-License-Identifier: AGPL-3.0-only
  */
 
@@ -97,7 +97,7 @@ export class PollService {
 		if (note.localOnly) return;
 
 		const user = await this.usersRepository.findOneBy({ id: note.userId });
-		if (user == null) throw new Error('note not found');
+		if (user == null) throw new Error('user not found');
 
 		if (this.userEntityService.isLocalUser(user)) {
 			const content = this.apRendererService.addContext(this.apRendererService.renderUpdate(await this.apRendererService.renderNote(note, false), user));

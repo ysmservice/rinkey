@@ -1,9 +1,9 @@
 /*
- * SPDX-FileCopyrightText: syuilo and other misskey contributors
+ * SPDX-FileCopyrightText: syuilo and misskey-project
  * SPDX-License-Identifier: AGPL-3.0-only
  */
 
-import { Entity, Column, PrimaryColumn } from 'typeorm';
+import { Entity, Column, PrimaryColumn, Index } from 'typeorm';
 import { id } from './util/id.js';
 
 type CondFormulaValueAnd = {
@@ -27,6 +27,11 @@ type CondFormulaValueIsLocal = {
 
 type CondFormulaValueIsRemote = {
 	type: 'isRemote';
+};
+
+type CondFormulaValueRoleAssignedTo = {
+	type: 'roleAssignedTo';
+	roleId: string;
 };
 
 type CondFormulaValueCreatedLessThan = {
@@ -69,12 +74,13 @@ type CondFormulaValueNotesMoreThanOrEq = {
 	value: number;
 };
 
-export type RoleCondFormulaValue =
+export type RoleCondFormulaValue = { id: string } & (
 	CondFormulaValueAnd |
 	CondFormulaValueOr |
 	CondFormulaValueNot |
 	CondFormulaValueIsLocal |
 	CondFormulaValueIsRemote |
+	CondFormulaValueRoleAssignedTo |
 	CondFormulaValueCreatedLessThan |
 	CondFormulaValueCreatedMoreThan |
 	CondFormulaValueFollowersLessThanOrEq |
@@ -82,12 +88,20 @@ export type RoleCondFormulaValue =
 	CondFormulaValueFollowingLessThanOrEq |
 	CondFormulaValueFollowingMoreThanOrEq |
 	CondFormulaValueNotesLessThanOrEq |
-	CondFormulaValueNotesMoreThanOrEq;
+	CondFormulaValueNotesMoreThanOrEq
+);
 
 @Entity('role')
 export class MiRole {
 	@PrimaryColumn(id())
 	public id: string;
+
+	@Index()
+	@Column('timestamp with time zone', {
+		comment: 'The created date of the Role.',
+		default: () => 'CURRENT_TIMESTAMP',
+	})
+	public createdAt: Date;
 
 	@Column('timestamp with time zone', {
 		comment: 'The updated date of the Role.',

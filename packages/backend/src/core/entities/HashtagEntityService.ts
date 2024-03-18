@@ -1,11 +1,10 @@
 /*
- * SPDX-FileCopyrightText: syuilo and other misskey contributors
+ * SPDX-FileCopyrightText: syuilo and misskey-project
  * SPDX-License-Identifier: AGPL-3.0-only
  */
 
 import { Injectable } from '@nestjs/common';
 import type { Packed } from '@/misc/json-schema.js';
-import type { } from '@/models/Blocking.js';
 import type { MiHashtag } from '@/models/Hashtag.js';
 import { bindThis } from '@/decorators.js';
 
@@ -31,10 +30,11 @@ export class HashtagEntityService {
 	}
 
 	@bindThis
-	public packMany(
+	public async packMany(
 		hashtags: MiHashtag[],
-	) {
-		return Promise.all(hashtags.map(x => this.pack(x)));
+	) : Promise<Packed<'Hashtag'>[]> {
+		return (await Promise.allSettled(hashtags.map(x => this.pack(x))))
+			.filter(result => result.status === 'fulfilled')
+			.map(result => (result as PromiseFulfilledResult<Packed<'Hashtag'>>).value);
 	}
 }
-

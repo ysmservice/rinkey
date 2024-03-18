@@ -1,5 +1,5 @@
 /*
- * SPDX-FileCopyrightText: syuilo and other misskey contributors
+ * SPDX-FileCopyrightText: syuilo and misskey-project
  * SPDX-License-Identifier: AGPL-3.0-only
  */
 
@@ -28,7 +28,7 @@ export class BlockingEntityService {
 	@bindThis
 	public async pack(
 		src: MiBlocking['id'] | MiBlocking,
-		me?: { id: MiUser['id'] } | null | undefined,
+		me: { id: MiUser['id'] } | null | undefined,
 	): Promise<Packed<'Blocking'>> {
 		const blocking = typeof src === 'object' ? src : await this.blockingsRepository.findOneByOrFail({ id: src });
 
@@ -37,16 +37,18 @@ export class BlockingEntityService {
 			createdAt: this.idService.parse(blocking.id).date.toISOString(),
 			blockeeId: blocking.blockeeId,
 			blockee: this.userEntityService.pack(blocking.blockeeId, me, {
-				detail: true,
+				schema: 'UserDetailedNotMe',
 			}),
 		});
 	}
 
 	@bindThis
-	public packMany(
-		blockings: any[],
-		me: { id: MiUser['id'] },
-	) {
-		return Promise.all(blockings.map(x => this.pack(x, me)));
+	public async packMany(
+		blockings: (MiBlocking['id'] | MiBlocking)[],
+		me: { id: MiUser['id'] } | null | undefined,
+	) : Promise<Packed<'Blocking'>[]> {
+		return (await Promise.allSettled(blockings.map(x => this.pack(x, me))))
+			.filter(result => result.status === 'fulfilled')
+			.map(result => (result as PromiseFulfilledResult<Packed<'Blocking'>>).value);
 	}
 }

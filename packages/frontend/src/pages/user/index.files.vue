@@ -1,5 +1,5 @@
 <!--
-SPDX-FileCopyrightText: syuilo and other misskey contributors
+SPDX-FileCopyrightText: syuilo and misskey-project
 SPDX-License-Identifier: AGPL-3.0-only
 -->
 
@@ -9,73 +9,56 @@ SPDX-License-Identifier: AGPL-3.0-only
 	<template #header>{{ i18n.ts.files }}</template>
 	<div :class="$style.root">
 		<MkLoading v-if="fetching"/>
-		<div v-if="!fetching && files.length > 0" :class="$style.stream">
-			<template v-for="file in files" :key="file.note.id + file.file.id">
-				<div v-if="file.file.isSensitive && !showingFiles.includes(file.file.id)" :class="$style.img" @click="showingFiles.push(file.file.id)">
-					<!-- TODO: 画像以外のファイルに対応 -->
-					<ImgWithBlurhash :class="$style.sensitiveImg" :hash="file.file.blurhash" :src="thumbnail(file.file)" :title="file.file.name" :forceBlurhash="true"/>
-					<div :class="$style.sensitive">
-						<div>
-							<div><i class="ti ti-eye-exclamation"></i> {{ i18n.ts.sensitive }}</div>
-							<div>{{ i18n.ts.clickToShow }}</div>
-						</div>
-					</div>
-				</div>
-				<MkA v-else :class="$style.img" :to="notePage(file.note)">
-					<!-- TODO: 画像以外のファイルに対応 -->
-					<ImgWithBlurhash :hash="file.file.blurhash" :src="thumbnail(file.file)" :title="file.file.name"/>
+		<div v-if="!fetching && medias.length > 0" :class="$style.stream">
+			<template v-for="media in medias" :key="media.note.id + media.file.id">
+				<MkA :to="notePage(media.note)">
+					<XVideo v-if="media.file.type.startsWith('video')" :key="`video:${media.file.id}`" :class="$style.media" :video="media.file" :videoControls="false"/>
+					<XImage v-else-if="media.file.type.startsWith('image')" :key="`image:${media.file.id}`" :class="$style.media" class="image" :data-id="media.file.id" :image="media.file" :disableImageLink="true"/>
+					<XBanner v-else :media="media.file"/>
 				</MkA>
 			</template>
 		</div>
-		<p v-if="!fetching && files.length == 0" :class="$style.empty">{{ i18n.ts.nothing }}</p>
+		<p v-if="!fetching && medias.length == 0" :class="$style.empty">{{ i18n.ts.nothing }}</p>
 	</div>
 </MkContainer>
 </template>
 
 <script lang="ts" setup>
-import { onMounted } from 'vue';
+import { onMounted, ref } from 'vue';
 import * as Misskey from 'misskey-js';
-import { getStaticImageUrl } from '@/scripts/media-proxy.js';
 import { notePage } from '@/filters/note.js';
-import * as os from '@/os.js';
+import { misskeyApi } from '@/scripts/misskey-api.js';
 import MkContainer from '@/components/MkContainer.vue';
-import ImgWithBlurhash from '@/components/MkImgWithBlurhash.vue';
-import { defaultStore } from '@/store.js';
+import XVideo from '@/components/MkMediaVideo.vue';
+import XImage from '@/components/MkMediaImage.vue';
+import XBanner from '@/components/MkMediaBanner.vue';
 import { i18n } from '@/i18n.js';
 
 const props = defineProps<{
 	user: Misskey.entities.UserDetailed;
 }>();
 
-let fetching = $ref(true);
-let files = $ref<{
+const fetching = ref(true);
+const medias = ref<{
 	note: Misskey.entities.Note;
 	file: Misskey.entities.DriveFile;
 }[]>([]);
-let showingFiles = $ref<string[]>([]);
-
-function thumbnail(image: Misskey.entities.DriveFile): string {
-	return defaultStore.state.disableShowingAnimatedImages
-		? getStaticImageUrl(image.url)
-		: image.thumbnailUrl;
-}
 
 onMounted(() => {
-	os.api('users/notes', {
+	misskeyApi('users/notes', {
 		userId: props.user.id,
 		withFiles: true,
-		excludeNsfw: defaultStore.state.nsfw !== 'ignore',
 		limit: 15,
 	}).then(notes => {
 		for (const note of notes) {
 			for (const file of note.files) {
-				files.push({
+				medias.value.push({
 					note,
 					file,
 				});
 			}
 		}
-		fetching = false;
+		fetching.value = false;
 	});
 });
 </script>
@@ -91,7 +74,7 @@ onMounted(() => {
 	grid-gap: 6px;
 }
 
-.img {
+.media {
 	position: relative;
 	height: 128px;
 	border-radius: 6px;
@@ -102,27 +85,5 @@ onMounted(() => {
 	margin: 0;
 	padding: 16px;
 	text-align: center;
-}
-
-.sensitiveImg {
-	position: absolute;
-	top: 0;
-	left: 0;
-	width: 100%;
-	height: 100%;
-	filter: brightness(0.7);
-}
-
-.sensitive {
-	position: absolute;
-	top: 0;
-	left: 0;
-	width: 100%;
-	height: 100%;
-	display: grid;
-	place-items: center;
-	font-size: 0.8em;
-	color: #fff;
-	cursor: pointer;
 }
 </style>

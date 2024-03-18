@@ -1,5 +1,5 @@
 /*
- * SPDX-FileCopyrightText: syuilo and other misskey contributors
+ * SPDX-FileCopyrightText: syuilo and misskey-project
  * SPDX-License-Identifier: AGPL-3.0-only
  */
 
@@ -28,13 +28,14 @@ import { UserBlockingService } from '@/core/UserBlockingService.js';
 import { CustomEmojiService } from '@/core/CustomEmojiService.js';
 import { RoleService } from '@/core/RoleService.js';
 import { FeaturedService } from '@/core/FeaturedService.js';
+import { trackPromise } from '@/misc/promise-tracker.js';
 
-const FALLBACK = '❤';
+const FALLBACK = '\u2764';
 const PER_NOTE_REACTION_USER_PAIR_CACHE_MAX = 16;
 
 const legacies: Record<string, string> = {
 	'like': '👍',
-	'love': '❤', // ここに記述する場合は異体字セレクタを入れない
+	'love': '\u2764', // ハート、異体字セレクタを入れない
 	'laugh': '😆',
 	'hmm': '🤔',
 	'surprise': '😮',
@@ -107,7 +108,7 @@ export class ReactionService {
 		if (note.userId !== user.id) {
 			const blocked = await this.userBlockingService.checkBlocked(note.userId, user.id);
 			if (blocked) {
-				throw new IdentifiableError('e70412a4-7197-4726-8e74-f3e0deb92aa7');
+				throw new IdentifiableError('e70412a4-7197-4726-8e74-f3e0deb92aa7', 'You are blocked by the user.');
 			}
 		}
 
@@ -119,7 +120,7 @@ export class ReactionService {
 		let reaction = _reaction ?? FALLBACK;
 
 		if (note.reactionAcceptance === 'likeOnly' || ((note.reactionAcceptance === 'likeOnlyForRemote' || note.reactionAcceptance === 'nonSensitiveOnlyForLocalLikeOnlyForRemote') && (user.host != null))) {
-			reaction = '❤️';
+			reaction = '\u2764';
 		} else if (_reaction) {
 			const custom = reaction.match(isCustomEmojiRegexp);
 			if (custom) {
@@ -134,11 +135,14 @@ export class ReactionService {
 					});
 
 				if (emoji) {
-					if (emoji.roleIdsThatCanBeUsedThisEmojiAsReaction.length === 0 || (await this.roleService.getUserRoles(user.id)).some(r => emoji.roleIdsThatCanBeUsedThisEmojiAsReaction.includes(r.id))) {
+					if (
+						(emoji.roleIdsThatCanBeUsedThisEmojiAsReaction.length === 0 || (await this.roleService.getUserRoles(user.id)).some(r => emoji.roleIdsThatCanBeUsedThisEmojiAsReaction.includes(r.id))) &&
+						(emoji.roleIdsThatCanNotBeUsedThisEmojiAsReaction.length === 0 || !(await this.roleService.getUserRoles(user.id)).some(r => emoji.roleIdsThatCanNotBeUsedThisEmojiAsReaction.includes(r.id)))
+					) {
 						reaction = reacterHost ? `:${name}@${reacterHost}:` : `:${name}:`;
 
 						// センシティブ
-						if ((note.reactionAcceptance === 'nonSensitiveOnly') && emoji.isSensitive) {
+						if ((note.reactionAcceptance === 'nonSensitiveOnly' || note.reactionAcceptance === 'nonSensitiveOnlyForLocalLikeOnlyForRemote') && emoji.isSensitive) {
 							reaction = FALLBACK;
 						}
 					} else {
@@ -155,6 +159,7 @@ export class ReactionService {
 
 		const record: MiNoteReaction = {
 			id: this.idService.gen(),
+			createdAt: new Date(),
 			noteId: note.id,
 			userId: user.id,
 			reaction,
@@ -176,7 +181,7 @@ export class ReactionService {
 					await this.noteReactionsRepository.insert(record);
 				} else {
 					// 同じリアクションがすでにされていたらエラー
-					throw new IdentifiableError('51c42bb4-931a-456b-bff7-e5a8a70dd298');
+					throw new IdentifiableError('51c42bb4-931a-456b-bff7-e5a8a70dd298', 'You already reacted to this note with the same reaction.');
 				}
 			} else {
 				throw e;
@@ -269,7 +274,7 @@ export class ReactionService {
 				}
 			}
 
-			dm.execute();
+			trackPromise(dm.execute());
 		}
 		//#endregion
 	}
@@ -283,14 +288,14 @@ export class ReactionService {
 		});
 
 		if (exist == null) {
-			throw new IdentifiableError('60527ec9-b4cb-4a88-a6bd-32d3ad26817d', 'not reacted');
+			throw new IdentifiableError('60527ec9-b4cb-4a88-a6bd-32d3ad26817d', 'You have not reacted to this note.');
 		}
 
 		// Delete reaction
 		const result = await this.noteReactionsRepository.delete(exist.id);
 
 		if (result.affected !== 1) {
-			throw new IdentifiableError('60527ec9-b4cb-4a88-a6bd-32d3ad26817d', 'not reacted');
+			throw new IdentifiableError('60527ec9-b4cb-4a88-a6bd-32d3ad26817d', 'You have not reacted to this note.');
 		}
 
 		// Decrement reactions count
@@ -317,40 +322,41 @@ export class ReactionService {
 				dm.addDirectRecipe(reactee as MiRemoteUser);
 			}
 			dm.addFollowersRecipe();
-			dm.execute();
+			trackPromise(dm.execute());
 		}
 		//#endregion
 	}
 
+	/**
+	 * 文字列タイプのレガシーな形式のリアクションを現在の形式に変換しつつ、
+	 * データベース上には存在する「0個のリアクションがついている」という情報を削除する。
+	 */
 	@bindThis
-	public convertLegacyReactions(reactions: Record<string, number>) {
-		const _reactions = {} as Record<string, number>;
+	public convertLegacyReactions(reactions: MiNote['reactions']): MiNote['reactions'] {
+		return Object.entries(reactions)
+			.filter(([, count]) => {
+				// `ReactionService.prototype.delete`ではリアクション削除時に、
+				// `MiNote['reactions']`のエントリの値をデクリメントしているが、
+				// デクリメントしているだけなのでエントリ自体は0を値として持つ形で残り続ける。
+				// そのため、この処理がなければ、「0個のリアクションがついている」ということになってしまう。
+				return count > 0;
+			})
+			.map(([reaction, count]) => {
+				// unchecked indexed access
+				const convertedReaction = legacies[reaction] as string | undefined;
 
-		for (const reaction of Object.keys(reactions)) {
-			if (reactions[reaction] <= 0) continue;
+				const key = this.decodeReaction(convertedReaction ?? reaction).reaction;
 
-			if (Object.keys(legacies).includes(reaction)) {
-				if (_reactions[legacies[reaction]]) {
-					_reactions[legacies[reaction]] += reactions[reaction];
-				} else {
-					_reactions[legacies[reaction]] = reactions[reaction];
-				}
-			} else {
-				if (_reactions[reaction]) {
-					_reactions[reaction] += reactions[reaction];
-				} else {
-					_reactions[reaction] = reactions[reaction];
-				}
-			}
-		}
+				return [key, count] as const;
+			})
+			.reduce<MiNote['reactions']>((acc, [key, count]) => {
+				// unchecked indexed access
+				const prevCount = acc[key] as number | undefined;
 
-		const _reactions2 = {} as Record<string, number>;
+				acc[key] = (prevCount ?? 0) + count;
 
-		for (const reaction of Object.keys(_reactions)) {
-			_reactions2[this.decodeReaction(reaction).reaction] = _reactions[reaction];
-		}
-
-		return _reactions2;
+				return acc;
+			}, {});
 	}
 
 	@bindThis

@@ -1,5 +1,5 @@
 /*
- * SPDX-FileCopyrightText: syuilo and other misskey contributors
+ * SPDX-FileCopyrightText: syuilo and misskey-project
  * SPDX-License-Identifier: AGPL-3.0-only
  */
 
@@ -24,6 +24,7 @@ import { ExportCustomEmojisProcessorService } from './processors/ExportCustomEmo
 import { ExportFollowingProcessorService } from './processors/ExportFollowingProcessorService.js';
 import { ExportMutingProcessorService } from './processors/ExportMutingProcessorService.js';
 import { ExportNotesProcessorService } from './processors/ExportNotesProcessorService.js';
+import { ExportClipsProcessorService } from './processors/ExportClipsProcessorService.js';
 import { ExportUserListsProcessorService } from './processors/ExportUserListsProcessorService.js';
 import { ExportAntennasProcessorService } from './processors/ExportAntennasProcessorService.js';
 import { ImportBlockingProcessorService } from './processors/ImportBlockingProcessorService.js';
@@ -33,6 +34,7 @@ import { ImportMutingProcessorService } from './processors/ImportMutingProcessor
 import { ImportUserListsProcessorService } from './processors/ImportUserListsProcessorService.js';
 import { ImportAntennasProcessorService } from './processors/ImportAntennasProcessorService.js';
 import { ResyncChartsProcessorService } from './processors/ResyncChartsProcessorService.js';
+import { ReportAbuseProcessorService } from './processors/ReportAbuseProcessorService.js';
 import { TickChartsProcessorService } from './processors/TickChartsProcessorService.js';
 import { AggregateRetentionProcessorService } from './processors/AggregateRetentionProcessorService.js';
 import { ExportFavoritesProcessorService } from './processors/ExportFavoritesProcessorService.js';
@@ -53,6 +55,7 @@ import { RelationshipProcessorService } from './processors/RelationshipProcessor
 		DeleteDriveFilesProcessorService,
 		ExportCustomEmojisProcessorService,
 		ExportNotesProcessorService,
+		ExportClipsProcessorService,
 		ExportFavoritesProcessorService,
 		ExportFollowingProcessorService,
 		ExportMutingProcessorService,
@@ -69,6 +72,7 @@ import { RelationshipProcessorService } from './processors/RelationshipProcessor
 		DeleteFileProcessorService,
 		CleanRemoteFilesProcessorService,
 		RelationshipProcessorService,
+		ReportAbuseProcessorService,
 		WebhookDeliverProcessorService,
 		EndedPollNotificationProcessorService,
 		DeliverProcessorService,

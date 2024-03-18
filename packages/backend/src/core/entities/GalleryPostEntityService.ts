@@ -1,5 +1,5 @@
 /*
- * SPDX-FileCopyrightText: syuilo and other misskey contributors
+ * SPDX-FileCopyrightText: syuilo and misskey-project
  * SPDX-License-Identifier: AGPL-3.0-only
  */
 
@@ -8,7 +8,6 @@ import { DI } from '@/di-symbols.js';
 import type { GalleryLikesRepository, GalleryPostsRepository } from '@/models/_.js';
 import { awaitAll } from '@/misc/prelude/await-all.js';
 import type { Packed } from '@/misc/json-schema.js';
-import type { } from '@/models/Blocking.js';
 import type { MiUser } from '@/models/User.js';
 import type { MiGalleryPost } from '@/models/GalleryPost.js';
 import { bindThis } from '@/decorators.js';
@@ -34,7 +33,7 @@ export class GalleryPostEntityService {
 	@bindThis
 	public async pack(
 		src: MiGalleryPost['id'] | MiGalleryPost,
-		me?: { id: MiUser['id'] } | null | undefined,
+		me: { id: MiUser['id'] } | null | undefined,
 	): Promise<Packed<'GalleryPost'>> {
 		const meId = me ? me.id : null;
 		const post = typeof src === 'object' ? src : await this.galleryPostsRepository.findOneByOrFail({ id: src });
@@ -49,20 +48,21 @@ export class GalleryPostEntityService {
 			description: post.description,
 			fileIds: post.fileIds,
 			// TODO: packMany causes N+1 queries
-			files: this.driveFileEntityService.packManyByIds(post.fileIds),
+			files: this.driveFileEntityService.packManyByIds(post.fileIds, me),
 			tags: post.tags.length > 0 ? post.tags : undefined,
 			isSensitive: post.isSensitive,
 			likedCount: post.likedCount,
-			isLiked: meId ? await this.galleryLikesRepository.exist({ where: { postId: post.id, userId: meId } }) : undefined,
+			isLiked: meId ? await this.galleryLikesRepository.exists({ where: { postId: post.id, userId: meId } }) : undefined,
 		});
 	}
 
 	@bindThis
-	public packMany(
+	public async packMany(
 		posts: MiGalleryPost[],
-		me?: { id: MiUser['id'] } | null | undefined,
-	) {
-		return Promise.all(posts.map(x => this.pack(x, me)));
+		me: { id: MiUser['id'] } | null | undefined,
+	) : Promise<Packed<'GalleryPost'>[]> {
+		return (await Promise.allSettled(posts.map(x => this.pack(x, me))))
+			.filter(result => result.status === 'fulfilled')
+			.map(result => (result as PromiseFulfilledResult<Packed<'GalleryPost'>>).value);
 	}
 }
-

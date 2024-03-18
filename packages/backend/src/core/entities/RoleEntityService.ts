@@ -1,5 +1,5 @@
 /*
- * SPDX-FileCopyrightText: syuilo and other misskey contributors
+ * SPDX-FileCopyrightText: syuilo and misskey-project
  * SPDX-License-Identifier: AGPL-3.0-only
  */
 
@@ -12,6 +12,7 @@ import type { MiUser } from '@/models/User.js';
 import type { MiRole } from '@/models/Role.js';
 import { bindThis } from '@/decorators.js';
 import { DEFAULT_POLICIES } from '@/core/RoleService.js';
+import { Packed } from '@/misc/json-schema.js';
 import { IdService } from '@/core/IdService.js';
 
 @Injectable()
@@ -30,8 +31,8 @@ export class RoleEntityService {
 	@bindThis
 	public async pack(
 		src: MiRole['id'] | MiRole,
-		me?: { id: MiUser['id'] } | null | undefined,
-	) {
+		me: { id: MiUser['id'] } | null | undefined,
+	) : Promise<Packed<'Role'>> {
 		const role = typeof src === 'object' ? src : await this.rolesRepository.findOneByOrFail({ id: src });
 
 		const assignedCount = await this.roleAssignmentsRepository.createQueryBuilder('assign')
@@ -75,11 +76,12 @@ export class RoleEntityService {
 	}
 
 	@bindThis
-	public packMany(
-		roles: any[],
+	public async packMany(
+		roles: (MiRole['id'] | MiRole)[],
 		me: { id: MiUser['id'] },
-	) {
-		return Promise.all(roles.map(x => this.pack(x, me)));
+	) : Promise<Packed<'Role'>[]> {
+		return (await Promise.allSettled(roles.map(x => this.pack(x, me))))
+			.filter(result => result.status === 'fulfilled')
+			.map(result => (result as PromiseFulfilledResult<Packed<'Role'>>).value);
 	}
 }
-

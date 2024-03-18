@@ -1,14 +1,14 @@
 /*
- * SPDX-FileCopyrightText: syuilo and other misskey contributors
+ * SPDX-FileCopyrightText: syuilo and misskey-project
  * SPDX-License-Identifier: AGPL-3.0-only
  */
 
-import { setTimeout } from 'node:timers/promises';
 import { Inject, Module, OnApplicationShutdown } from '@nestjs/common';
 import * as Bull from 'bullmq';
 import { DI } from '@/di-symbols.js';
 import type { Config } from '@/config.js';
 import { QUEUE, baseQueueOptions } from '@/queue/const.js';
+import { allSettled } from '@/misc/promise-tracker.js';
 import type { Provider } from '@nestjs/common';
 import type { DeliverJobData, InboxJobData, EndedPollNotificationJobData, WebhookDeliverJobData, RelationshipJobData } from '../queue/types.js';
 
@@ -23,49 +23,49 @@ export type WebhookDeliverQueue = Bull.Queue<WebhookDeliverJobData>;
 
 const $system: Provider = {
 	provide: 'queue:system',
-	useFactory: (config: Config) => new Bull.Queue(QUEUE.SYSTEM, baseQueueOptions(config, QUEUE.SYSTEM)),
+	useFactory: (config: Config) => new Bull.Queue(QUEUE.SYSTEM, baseQueueOptions(config.redisForSystemQueue, config.bullmqQueueOptions, QUEUE.SYSTEM)),
 	inject: [DI.config],
 };
 
 const $endedPollNotification: Provider = {
 	provide: 'queue:endedPollNotification',
-	useFactory: (config: Config) => new Bull.Queue(QUEUE.ENDED_POLL_NOTIFICATION, baseQueueOptions(config, QUEUE.ENDED_POLL_NOTIFICATION)),
+	useFactory: (config: Config) => new Bull.Queue(QUEUE.ENDED_POLL_NOTIFICATION, baseQueueOptions(config.redisForEndedPollNotificationQueue, config.bullmqQueueOptions, QUEUE.ENDED_POLL_NOTIFICATION)),
 	inject: [DI.config],
 };
 
 const $deliver: Provider = {
 	provide: 'queue:deliver',
-	useFactory: (config: Config) => new Bull.Queue(QUEUE.DELIVER, baseQueueOptions(config, QUEUE.DELIVER)),
+	useFactory: (config: Config) => new Bull.Queue(QUEUE.DELIVER, baseQueueOptions(config.redisForDeliverQueue, config.bullmqQueueOptions, QUEUE.DELIVER)),
 	inject: [DI.config],
 };
 
 const $inbox: Provider = {
 	provide: 'queue:inbox',
-	useFactory: (config: Config) => new Bull.Queue(QUEUE.INBOX, baseQueueOptions(config, QUEUE.INBOX)),
+	useFactory: (config: Config) => new Bull.Queue(QUEUE.INBOX, baseQueueOptions(config.redisForInboxQueue, config.bullmqQueueOptions, QUEUE.INBOX)),
 	inject: [DI.config],
 };
 
 const $db: Provider = {
 	provide: 'queue:db',
-	useFactory: (config: Config) => new Bull.Queue(QUEUE.DB, baseQueueOptions(config, QUEUE.DB)),
+	useFactory: (config: Config) => new Bull.Queue(QUEUE.DB, baseQueueOptions(config.redisForDbQueue, config.bullmqQueueOptions, QUEUE.DB)),
 	inject: [DI.config],
 };
 
 const $relationship: Provider = {
 	provide: 'queue:relationship',
-	useFactory: (config: Config) => new Bull.Queue(QUEUE.RELATIONSHIP, baseQueueOptions(config, QUEUE.RELATIONSHIP)),
+	useFactory: (config: Config) => new Bull.Queue(QUEUE.RELATIONSHIP, baseQueueOptions(config.redisForRelationshipQueue, config.bullmqQueueOptions, QUEUE.RELATIONSHIP)),
 	inject: [DI.config],
 };
 
 const $objectStorage: Provider = {
 	provide: 'queue:objectStorage',
-	useFactory: (config: Config) => new Bull.Queue(QUEUE.OBJECT_STORAGE, baseQueueOptions(config, QUEUE.OBJECT_STORAGE)),
+	useFactory: (config: Config) => new Bull.Queue(QUEUE.OBJECT_STORAGE, baseQueueOptions(config.redisForObjectStorageQueue, config.bullmqQueueOptions, QUEUE.OBJECT_STORAGE)),
 	inject: [DI.config],
 };
 
 const $webhookDeliver: Provider = {
 	provide: 'queue:webhookDeliver',
-	useFactory: (config: Config) => new Bull.Queue(QUEUE.WEBHOOK_DELIVER, baseQueueOptions(config, QUEUE.WEBHOOK_DELIVER)),
+	useFactory: (config: Config) => new Bull.Queue(QUEUE.WEBHOOK_DELIVER, baseQueueOptions(config.redisForWebhookDeliverQueue, config.bullmqQueueOptions, QUEUE.WEBHOOK_DELIVER)),
 	inject: [DI.config],
 };
 
@@ -106,14 +106,9 @@ export class QueueModule implements OnApplicationShutdown {
 	) {}
 
 	public async dispose(): Promise<void> {
-		if (process.env.NODE_ENV === 'test') {
-			// XXX:
-			// Shutting down the existing connections causes errors on Jest as
-			// Misskey has asynchronous postgres/redis connections that are not
-			// awaited.
-			// Let's wait for some random time for them to finish.
-			await setTimeout(5000);
-		}
+		// Wait for all potential queue jobs
+		await allSettled();
+		// And then close all queues
 		await Promise.all([
 			this.systemQueue.close(),
 			this.endedPollNotificationQueue.close(),

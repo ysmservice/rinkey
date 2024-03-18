@@ -1,13 +1,16 @@
 <!--
-SPDX-FileCopyrightText: syuilo and other misskey contributors
+SPDX-FileCopyrightText: syuilo and misskey-project
 SPDX-License-Identifier: AGPL-3.0-only
 -->
 
 <template>
 <MkModalWindow
 	ref="dialog"
-	:width="400"
-	@close="dialog.close()"
+	:width="800"
+	:height="600"
+	:withOkButton="false"
+	:okButtonDisabled="false"
+	@close="dialog?.close()"
 	@closed="$emit('closed')"
 >
 	<template v-if="announcement" #header>:{{ announcement.title }}:</template>
@@ -16,8 +19,8 @@ SPDX-License-Identifier: AGPL-3.0-only
 	<div>
 		<MkSpacer :marginMin="20" :marginMax="28">
 			<div class="_gaps_m">
-				<MkInput v-model="title">
-					<template #label>{{ i18n.ts.title }}</template>
+				<MkInput ref="announceTitleEl" v-model="title" :large="false">
+					<template #label>{{ i18n.ts.title }}&nbsp;<button v-tooltip="i18n.ts.emoji" :class="['_button']" @click="insertEmoji"><i class="ti ti-mood-happy"></i></button></template>
 				</MkInput>
 				<MkTextarea v-model="text">
 					<template #label>{{ i18n.ts.text }}</template>
@@ -39,6 +42,19 @@ SPDX-License-Identifier: AGPL-3.0-only
 					{{ i18n.ts._announcement.needConfirmationToRead }}
 					<template #caption>{{ i18n.ts._announcement.needConfirmationToReadDescription }}</template>
 				</MkSwitch>
+				<MkInput v-model="closeDuration" type="number">
+					<template #label>{{ i18n.ts.dialogCloseDuration }}</template>
+					<template #suffix>{{ i18n.ts._time.second }}</template>
+				</MkInput>
+				<MkInput v-model="displayOrder" type="number">
+					<template #label>{{ i18n.ts.displayOrder }}</template>
+				</MkInput>
+				<MkSwitch v-model="silence">
+					{{ i18n.ts._announcement.silence }}
+					<template #caption>{{ i18n.ts._announcement.silenceDescription }}</template>
+				</MkSwitch>
+				<p v-if="reads">{{ i18n.tsx.nUsersRead({ n: reads }) }}</p>
+				<MkUserCardMini v-if="props.user.id" :user="props.user"></MkUserCardMini>
 				<MkButton v-if="announcement" danger @click="del()"><i class="ti ti-trash"></i> {{ i18n.ts.delete }}</MkButton>
 			</div>
 		</MkSpacer>
@@ -50,59 +66,75 @@ SPDX-License-Identifier: AGPL-3.0-only
 </template>
 
 <script lang="ts" setup>
-import { } from 'vue';
+import { ref, shallowRef } from 'vue';
 import * as Misskey from 'misskey-js';
 import MkModalWindow from '@/components/MkModalWindow.vue';
 import MkButton from '@/components/MkButton.vue';
 import MkInput from '@/components/MkInput.vue';
 import * as os from '@/os.js';
+import { misskeyApi } from '@/scripts/misskey-api.js';
 import { i18n } from '@/i18n.js';
 import MkTextarea from '@/components/MkTextarea.vue';
 import MkSwitch from '@/components/MkSwitch.vue';
 import MkRadios from '@/components/MkRadios.vue';
+import MkUserCardMini from '@/components/MkUserCardMini.vue';
 
 const props = defineProps<{
 	user: Misskey.entities.User,
-	announcement?: any,
+	announcement?: Misskey.entities.Announcement,
 }>();
 
-let dialog = $ref(null);
-let title: string = $ref(props.announcement ? props.announcement.title : '');
-let text: string = $ref(props.announcement ? props.announcement.text : '');
-let icon: string = $ref(props.announcement ? props.announcement.icon : 'info');
-let display: string = $ref(props.announcement ? props.announcement.display : 'dialog');
-let needConfirmationToRead = $ref(props.announcement ? props.announcement.needConfirmationToRead : false);
+const dialog = ref<InstanceType<typeof MkModalWindow> | null>(null);
+const title = ref<string>(props.announcement ? props.announcement.title : '');
+const text = ref<string>(props.announcement ? props.announcement.text : '');
+const icon = ref<string>(props.announcement ? props.announcement.icon : 'info');
+const display = ref<string>(props.announcement ? props.announcement.display : 'dialog');
+const needConfirmationToRead = ref(props.announcement ? props.announcement.needConfirmationToRead : false);
+const closeDuration = ref<number>(props.announcement ? props.announcement.closeDuration : 0);
+const displayOrder = ref<number>(props.announcement ? props.announcement.displayOrder : 0);
+const silence = ref<boolean>(props.announcement ? props.announcement.silence : false);
+const reads = ref<number>(props.announcement ? props.announcement.reads : 0);
 
 const emit = defineEmits<{
 	(ev: 'done', v: { deleted?: boolean; updated?: any; created?: any }): void,
 	(ev: 'closed'): void
 }>();
 
-async function done() {
+const announceTitleEl = shallowRef<HTMLInputElement | null>(null);
+
+function insertEmoji(ev: MouseEvent): void {
+	os.openEmojiPicker((ev.currentTarget ?? ev.target) as HTMLElement, {}, announceTitleEl.value);
+}
+
+async function done(): Promise<void> {
 	const params = {
-		title: title,
-		text: text,
-		icon: icon,
+		title: title.value,
+		text: text.value,
+		icon: icon.value,
 		imageUrl: null,
-		display: display,
-		needConfirmationToRead: needConfirmationToRead,
+		display: display.value,
+		needConfirmationToRead: needConfirmationToRead.value,
+		closeDuration: closeDuration.value,
+		displayOrder: displayOrder.value,
+		silence: silence.value,
+		reads: reads.value,
 		userId: props.user.id,
 	};
 
 	if (props.announcement) {
 		await os.apiWithDialog('admin/announcements/update', {
-			id: props.announcement.id,
 			...params,
+			id: props.announcement.id,
 		});
 
 		emit('done', {
 			updated: {
-				id: props.announcement.id,
 				...params,
+				id: props.announcement.id,
 			},
 		});
 
-		dialog.close();
+		dialog.value?.close();
 	} else {
 		const created = await os.apiWithDialog('admin/announcements/create', params);
 
@@ -110,25 +142,27 @@ async function done() {
 			created: created,
 		});
 
-		dialog.close();
+		dialog.value?.close();
 	}
 }
 
-async function del() {
+async function del(): Promise<void> {
 	const { canceled } = await os.confirm({
 		type: 'warning',
-		text: i18n.t('removeAreYouSure', { x: title }),
+		text: i18n.tsx.removeAreYouSure({ x: title.value }),
 	});
 	if (canceled) return;
 
-	os.api('admin/announcements/delete', {
-		id: props.announcement.id,
-	}).then(() => {
-		emit('done', {
-			deleted: true,
+	if (props.announcement) {
+		await misskeyApi('admin/announcements/delete', {
+			id: props.announcement.id,
 		});
-		dialog.close();
+	}
+
+	emit('done', {
+		deleted: true,
 	});
+	dialog.value?.close();
 }
 </script>
 

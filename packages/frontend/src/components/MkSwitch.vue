@@ -1,12 +1,13 @@
 <!--
-SPDX-FileCopyrightText: syuilo and other misskey contributors
+SPDX-FileCopyrightText: syuilo and misskey-project
 SPDX-License-Identifier: AGPL-3.0-only
 -->
 
 <template>
-<div :class="[$style.root, { [$style.disabled]: disabled, [$style.checked]: checked }]">
+<div :class="[$style.root, { [$style.disabled]: disabled }]">
 	<input
 		ref="input"
+		class="mk-input-checkbox"
 		type="checkbox"
 		:disabled="disabled"
 		:class="$style.input"
@@ -64,9 +65,6 @@ const toggle = () => {
 		opacity: 0.6;
 		cursor: not-allowed;
 	}
-
-	//&.checked {
-	//}
 }
 
 .input {

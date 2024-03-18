@@ -1,5 +1,5 @@
 /*
- * SPDX-FileCopyrightText: syuilo and other misskey contributors
+ * SPDX-FileCopyrightText: syuilo and misskey-project
  * SPDX-License-Identifier: AGPL-3.0-only
  */
 
@@ -7,15 +7,18 @@ import { Inject, Injectable } from '@nestjs/common';
 import * as Redis from 'ioredis';
 import {
 	generateAuthenticationOptions,
-	generateRegistrationOptions, verifyAuthenticationResponse,
+	generateRegistrationOptions,
+	verifyAuthenticationResponse,
 	verifyRegistrationResponse,
 } from '@simplewebauthn/server';
 import { AttestationFormat, isoCBOR } from '@simplewebauthn/server/helpers';
 import { DI } from '@/di-symbols.js';
 import type { UserSecurityKeysRepository } from '@/models/_.js';
 import type { Config } from '@/config.js';
+import type Logger from '@/logger.js';
 import { bindThis } from '@/decorators.js';
 import { MetaService } from '@/core/MetaService.js';
+import { LoggerService } from '@/core/LoggerService.js';
 import { MiUser } from '@/models/_.js';
 import { IdentifiableError } from '@/misc/identifiable-error.js';
 import type {
@@ -26,10 +29,12 @@ import type {
 	PublicKeyCredentialDescriptorFuture,
 	PublicKeyCredentialRequestOptionsJSON,
 	RegistrationResponseJSON,
-} from '@simplewebauthn/typescript-types';
+} from '@simplewebauthn/types';
 
 @Injectable()
 export class WebAuthnService {
+	private logger: Logger;
+
 	constructor(
 		@Inject(DI.redis)
 		private redisClient: Redis.Redis,
@@ -41,7 +46,9 @@ export class WebAuthnService {
 		private userSecurityKeysRepository: UserSecurityKeysRepository,
 
 		private metaService: MetaService,
+		private loggerService: LoggerService,
 	) {
+		this.logger = this.loggerService.getLogger('webauthn');
 	}
 
 	@bindThis
@@ -100,7 +107,7 @@ export class WebAuthnService {
 		const challenge = await this.redisClient.get(`webauthn:challenge:${userId}`);
 
 		if (!challenge) {
-			throw new IdentifiableError('7dbfb66c-9216-4e2b-9c27-cef2ac8efb84', 'challenge not found');
+			throw new IdentifiableError('7dbfb66c-9216-4e2b-9c27-cef2ac8efb84', 'Unable to find registration challenge. Please try again.');
 		}
 
 		await this.redisClient.del(`webauthn:challenge:${userId}`);
@@ -117,14 +124,14 @@ export class WebAuthnService {
 				requireUserVerification: true,
 			});
 		} catch (error) {
-			console.error(error);
-			throw new IdentifiableError('5c1446f8-8ca7-4d31-9f39-656afe9c5d87', 'verification failed');
+			this.logger.error('Failed to verify registration response', { error });
+			throw new IdentifiableError('5c1446f8-8ca7-4d31-9f39-656afe9c5d87', 'Unable to verify registration response. Please try again.');
 		}
 
 		const { verified } = verification;
 
 		if (!verified || !verification.registrationInfo) {
-			throw new IdentifiableError('bb333667-3832-4a80-8bb5-c505be7d710d', 'verification failed');
+			throw new IdentifiableError('bb333667-3832-4a80-8bb5-c505be7d710d', 'Unable to verify registration response. Please try again.');
 		}
 
 		const { registrationInfo } = verification;
@@ -149,7 +156,7 @@ export class WebAuthnService {
 		});
 
 		if (keys.length === 0) {
-			throw new IdentifiableError('f27fd449-9af4-4841-9249-1f989b9fa4a4', 'no keys found');
+			throw new IdentifiableError('f27fd449-9af4-4841-9249-1f989b9fa4a4', 'You have no registered security keys or passkeys yet.');
 		}
 
 		const authenticationOptions = await generateAuthenticationOptions({
@@ -171,7 +178,7 @@ export class WebAuthnService {
 		const challenge = await this.redisClient.get(`webauthn:challenge:${userId}`);
 
 		if (!challenge) {
-			throw new IdentifiableError('2d16e51c-007b-4edd-afd2-f7dd02c947f6', 'challenge not found');
+			throw new IdentifiableError('2d16e51c-007b-4edd-afd2-f7dd02c947f6', 'Unable to find authentication challenge. Please try again.');
 		}
 
 		await this.redisClient.del(`webauthn:challenge:${userId}`);
@@ -182,7 +189,7 @@ export class WebAuthnService {
 		});
 
 		if (!key) {
-			throw new IdentifiableError('36b96a7d-b547-412d-aeed-2d611cdc8cdc', 'unknown key');
+			throw new IdentifiableError('36b96a7d-b547-412d-aeed-2d611cdc8cdc', 'Unable to identify your security key. Please try with another key.');
 		}
 
 		// マイグレーション
@@ -191,7 +198,7 @@ export class WebAuthnService {
 			if (cert[0] === 0x04) { // 前の実装ではいつも 0x04 で始まっていた
 				const halfLength = (cert.length - 1) / 2;
 
-				const cborMap = new Map<number, number | ArrayBufferLike>();
+				const cborMap = new Map<number, number | Uint8Array>();
 				cborMap.set(1, 2); // kty, EC2
 				cborMap.set(3, -7); // alg, ES256
 				cborMap.set(-1, 1); // crv, P256
@@ -227,8 +234,8 @@ export class WebAuthnService {
 				requireUserVerification: true,
 			});
 		} catch (error) {
-			console.error(error);
-			throw new IdentifiableError('b18c89a7-5b5e-4cec-bb5b-0419f332d430', 'verification failed');
+			this.logger.error('Failed to verify authentication response', { error });
+			throw new IdentifiableError('b18c89a7-5b5e-4cec-bb5b-0419f332d430', 'Unable to verify authentication response. Please try again.');
 		}
 
 		const { verified, authenticationInfo } = verification;

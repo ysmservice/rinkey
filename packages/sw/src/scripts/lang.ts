@@ -1,5 +1,5 @@
 /*
- * SPDX-FileCopyrightText: syuilo and other misskey contributors
+ * SPDX-FileCopyrightText: syuilo and misskey-project
  * SPDX-License-Identifier: AGPL-3.0-only
  */
 
@@ -13,7 +13,7 @@ class SwLang {
 	public cacheName = `mk-cache-${_VERSION_}`;
 
 	public lang: Promise<string> = get('lang').then(async prelang => {
-		if (!prelang) return 'en-US';
+		if (!prelang) return 'ja-JP';
 		return prelang;
 	});
 

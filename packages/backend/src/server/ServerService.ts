@@ -1,9 +1,10 @@
 /*
- * SPDX-FileCopyrightText: syuilo and other misskey contributors
+ * SPDX-FileCopyrightText: syuilo and misskey-project
  * SPDX-License-Identifier: AGPL-3.0-only
  */
 
 import cluster from 'node:cluster';
+import os from 'node:os';
 import * as fs from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { Inject, Injectable, OnApplicationShutdown } from '@nestjs/common';
@@ -32,6 +33,8 @@ import { FileServerService } from './FileServerService.js';
 import { ClientServerService } from './web/ClientServerService.js';
 import { OpenApiServerService } from './api/openapi/OpenApiServerService.js';
 import { OAuth2ProviderService } from './oauth/OAuth2ProviderService.js';
+import { JWTIdentifyProviderService } from './sso/JWTIdentifyProviderService.js';
+import { SAMLIdentifyProviderService } from './sso/SAMLIdentifyProviderService.js';
 
 const _dirname = fileURLToPath(new URL('.', import.meta.url));
 
@@ -66,6 +69,8 @@ export class ServerService implements OnApplicationShutdown {
 		private globalEventService: GlobalEventService,
 		private loggerService: LoggerService,
 		private oauth2ProviderService: OAuth2ProviderService,
+		private jwtIdentifyProviderService: JWTIdentifyProviderService,
+		private samlIdentifyProviderService: SAMLIdentifyProviderService,
 	) {
 		this.logger = this.loggerService.getLogger('server', 'gray', false);
 	}
@@ -101,13 +106,24 @@ export class ServerService implements OnApplicationShutdown {
 			serve: false,
 		});
 
+		const hostname = os.hostname();
+		fastify.addHook('onRequest', (request, reply, done) => {
+			reply.header('x-worker-host', hostname);
+			done();
+		});
+
 		fastify.register(this.apiServerService.createServer, { prefix: '/api' });
 		fastify.register(this.openApiServerService.createServer);
 		fastify.register(this.fileServerService.createServer);
 		fastify.register(this.activityPubServerService.createServer);
 		fastify.register(this.nodeinfoServerService.createServer);
 		fastify.register(this.wellKnownServerService.createServer);
-		fastify.register(this.oauth2ProviderService.createServer);
+		fastify.register(this.oauth2ProviderService.createServer, { prefix: '/oauth' });
+		fastify.register(this.oauth2ProviderService.createApiServer, { prefix: '/oauth/api' });
+		fastify.register(this.oauth2ProviderService.createTokenServer, { prefix: '/oauth/token' });
+		fastify.register(this.samlIdentifyProviderService.createServer, { prefix: '/sso/saml' });
+		fastify.register(this.jwtIdentifyProviderService.createServer, { prefix: '/sso/jwt' });
+		fastify.register(this.jwtIdentifyProviderService.createApiServer, { prefix: '/sso/jwt/api' });
 
 		fastify.get<{ Params: { path: string }; Querystring: { static?: any; badge?: any; }; }>('/emoji/:path(.*)', async (request, reply) => {
 			const path = request.params.path;
@@ -119,8 +135,8 @@ export class ServerService implements OnApplicationShutdown {
 				return;
 			}
 
-			const name = path.split('@')[0].replace('.webp', '');
-			const host = path.split('@')[1]?.replace('.webp', '');
+			const name = path.split('@')[0].replace(/\.webp$/i, '');
+			const host = path.split('@')[1]?.replace(/\.webp$/i, '');
 
 			const emoji = await this.emojisRepository.findOneBy({
 				// `@.` is the spec of ReactionService.decodeReaction
@@ -203,7 +219,7 @@ export class ServerService implements OnApplicationShutdown {
 				});
 
 				this.globalEventService.publishMainStream(profile.userId, 'meUpdated', await this.userEntityService.pack(profile.userId, { id: profile.userId }, {
-					detail: true,
+					schema: 'MeDetailed',
 					includeSecrets: true,
 				}));
 
@@ -258,7 +274,7 @@ export class ServerService implements OnApplicationShutdown {
 
 	@bindThis
 	public async dispose(): Promise<void> {
-		await this.streamingApiServerService.detach();
+		this.streamingApiServerService.detach();
 		await this.#fastify.close();
 	}
 
