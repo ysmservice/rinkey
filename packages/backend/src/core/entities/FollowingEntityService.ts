@@ -1,5 +1,5 @@
 /*
- * SPDX-FileCopyrightText: syuilo and other misskey contributors
+ * SPDX-FileCopyrightText: syuilo and misskey-project
  * SPDX-License-Identifier: AGPL-3.0-only
  */
 
@@ -8,7 +8,6 @@ import { DI } from '@/di-symbols.js';
 import type { FollowingsRepository } from '@/models/_.js';
 import { awaitAll } from '@/misc/prelude/await-all.js';
 import type { Packed } from '@/misc/json-schema.js';
-import type { } from '@/models/Blocking.js';
 import type { MiUser } from '@/models/User.js';
 import type { MiFollowing } from '@/models/Following.js';
 import { bindThis } from '@/decorators.js';
@@ -73,7 +72,7 @@ export class FollowingEntityService {
 	@bindThis
 	public async pack(
 		src: MiFollowing['id'] | MiFollowing,
-		me?: { id: MiUser['id'] } | null | undefined,
+		me: { id: MiUser['id'] } | null | undefined,
 		opts?: {
 			populateFollowee?: boolean;
 			populateFollower?: boolean;
@@ -89,24 +88,25 @@ export class FollowingEntityService {
 			followeeId: following.followeeId,
 			followerId: following.followerId,
 			followee: opts.populateFollowee ? this.userEntityService.pack(following.followee ?? following.followeeId, me, {
-				detail: true,
+				schema: 'UserDetailedNotMe',
 			}) : undefined,
 			follower: opts.populateFollower ? this.userEntityService.pack(following.follower ?? following.followerId, me, {
-				detail: true,
+				schema: 'UserDetailedNotMe',
 			}) : undefined,
 		});
 	}
 
 	@bindThis
-	public packMany(
-		followings: any[],
-		me?: { id: MiUser['id'] } | null | undefined,
+	public async packMany(
+		followings: (MiFollowing['id'] | MiFollowing)[],
+		me: { id: MiUser['id'] } | null | undefined,
 		opts?: {
 			populateFollowee?: boolean;
 			populateFollower?: boolean;
 		},
-	) {
-		return Promise.all(followings.map(x => this.pack(x, me, opts)));
+	) : Promise<Packed<'Following'>[]> {
+		return (await Promise.allSettled(followings.map(x => this.pack(x, me, opts))))
+			.filter(result => result.status === 'fulfilled')
+			.map(result => (result as PromiseFulfilledResult<Packed<'Following'>>).value);
 	}
 }
-

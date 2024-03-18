@@ -1,5 +1,5 @@
 /*
- * SPDX-FileCopyrightText: syuilo and other misskey contributors
+ * SPDX-FileCopyrightText: syuilo and misskey-project
  * SPDX-License-Identifier: AGPL-3.0-only
  */
 
@@ -7,11 +7,13 @@ import { randomUUID } from 'node:crypto';
 import { Inject, Injectable } from '@nestjs/common';
 import type { IActivity } from '@/core/activitypub/type.js';
 import type { MiDriveFile } from '@/models/DriveFile.js';
+import type { MiAbuseUserReport } from '@/models/AbuseUserReport.js';
 import type { MiWebhook, webhookEventTypes } from '@/models/Webhook.js';
 import type { Config } from '@/config.js';
 import { DI } from '@/di-symbols.js';
 import { bindThis } from '@/decorators.js';
 import type { Antenna } from '@/server/api/endpoints/i/import-antennas.js';
+import { ApRequestCreator } from '@/core/activitypub/ApRequestService.js';
 import type { DbQueue, DeliverQueue, EndedPollNotificationQueue, InboxQueue, ObjectStorageQueue, RelationshipQueue, SystemQueue, WebhookDeliverQueue } from './QueueModule.js';
 import type { DbJobData, DeliverJobData, RelationshipJobData, ThinUser } from '../queue/types.js';
 import type httpSignature from '@peertube/http-signature';
@@ -74,11 +76,15 @@ export class QueueService {
 		if (content == null) return null;
 		if (to == null) return null;
 
+		const contentBody = JSON.stringify(content);
+		const digest = ApRequestCreator.createDigest(contentBody);
+
 		const data: DeliverJobData = {
 			user: {
 				id: user.id,
 			},
-			content,
+			content: contentBody,
+			digest,
 			to,
 			isSharedInbox,
 		};
@@ -103,6 +109,8 @@ export class QueueService {
 	@bindThis
 	public async deliverMany(user: ThinUser, content: IActivity | null, inboxes: Map<string, boolean>) {
 		if (content == null) return null;
+		const contentBody = JSON.stringify(content);
+		const digest = ApRequestCreator.createDigest(contentBody);
 
 		const opts = {
 			attempts: this.config.deliverJobMaxAttempts ?? 12,
@@ -117,10 +125,11 @@ export class QueueService {
 			name: d[0],
 			data: {
 				user,
-				content,
+				content: contentBody,
+				digest,
 				to: d[0],
 				isSharedInbox: d[1],
-			} as DeliverJobData,
+			},
 			opts,
 		})));
 
@@ -128,8 +137,9 @@ export class QueueService {
 	}
 
 	@bindThis
-	public inbox(activity: IActivity, signature: httpSignature.IParsedSignature) {
+	public inbox(user: ThinUser | null, activity: IActivity, signature: httpSignature.IParsedSignature) {
 		const data = {
+			user: user ?? undefined,
 			activity: activity,
 			signature,
 		};
@@ -167,6 +177,16 @@ export class QueueService {
 	@bindThis
 	public createExportNotesJob(user: ThinUser) {
 		return this.dbQueue.add('exportNotes', {
+			user: { id: user.id },
+		}, {
+			removeOnComplete: true,
+			removeOnFail: true,
+		});
+	}
+
+	@bindThis
+	public createExportClipsJob(user: ThinUser) {
+		return this.dbQueue.add('exportClips', {
 			user: { id: user.id },
 		}, {
 			removeOnComplete: true,
@@ -332,14 +352,21 @@ export class QueueService {
 	}
 
 	@bindThis
-	public createDeleteAccountJob(user: ThinUser, opts: { soft?: boolean; } = {}) {
+	public createDeleteAccountJob(user: ThinUser, opts: { soft?: boolean, force?: boolean, onlyFiles?: boolean } = {}) {
 		return this.dbQueue.add('deleteAccount', {
 			user: { id: user.id },
 			soft: opts.soft,
+			force: opts.force,
+			onlyFiles: opts.onlyFiles,
 		}, {
 			removeOnComplete: true,
 			removeOnFail: true,
 		});
+	}
+
+	@bindThis
+	public createReportAbuseJob(report: MiAbuseUserReport) {
+		return this.dbQueue.add('reportAbuse', report);
 	}
 
 	@bindThis

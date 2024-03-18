@@ -1,5 +1,5 @@
 /*
- * SPDX-FileCopyrightText: syuilo and other misskey contributors
+ * SPDX-FileCopyrightText: syuilo and misskey-project
  * SPDX-License-Identifier: AGPL-3.0-only
  */
 
@@ -10,10 +10,10 @@ import { Inject, Injectable } from '@nestjs/common';
 import { DeleteObjectCommand, S3Client } from '@aws-sdk/client-s3';
 import { Upload } from '@aws-sdk/lib-storage';
 import { NodeHttpHandler, NodeHttpHandlerOptions } from '@smithy/node-http-handler';
+import { bindThis } from '@/decorators.js';
 import { DI } from '@/di-symbols.js';
 import type { Config } from '@/config.js';
 import { HttpRequestService } from '@/core/HttpRequestService.js';
-import { bindThis } from '@/decorators.js';
 import type { DeleteObjectCommandInput, PutObjectCommandInput } from '@aws-sdk/client-s3';
 
 @Injectable()

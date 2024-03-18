@@ -1,10 +1,11 @@
 /*
- * SPDX-FileCopyrightText: syuilo and other misskey contributors
+ * SPDX-FileCopyrightText: syuilo and misskey-project
  * SPDX-License-Identifier: AGPL-3.0-only
  */
 
-import { Config } from '@/config.js';
 import type * as Bull from 'bullmq';
+import type { RedisOptions } from 'ioredis';
+import type { RedisOptionsSource } from '@/config.js';
 
 export const QUEUE = {
 	DELIVER: 'deliver',
@@ -17,12 +18,40 @@ export const QUEUE = {
 	WEBHOOK_DELIVER: 'webhookDeliver',
 };
 
-export function baseQueueOptions(config: Config, queueName: typeof QUEUE[keyof typeof QUEUE]): Bull.QueueOptions {
+export function baseQueueOptions(config: RedisOptions & RedisOptionsSource, queueOptions: Partial<Bull.QueueOptions>, queueName: typeof QUEUE[keyof typeof QUEUE]): Bull.QueueOptions {
 	return {
+		...queueOptions,
 		connection: {
-			...config.redisForJobQueue,
+			...config,
+			maxRetriesPerRequest: null,
 			keyPrefix: undefined,
+			reconnectOnError: (err: Error) => {
+				if ( err.message.includes('READONLY')
+					|| err.message.includes('ETIMEDOUT')
+					|| err.message.includes('Command timed out')
+				) return 2;
+				return 1;
+			},
 		},
-		prefix: config.redisForJobQueue.prefix ? `${config.redisForJobQueue.prefix}:queue:${queueName}` : `queue:${queueName}`,
+		prefix: config.prefix ? `${config.prefix}:queue:${queueName}` : `queue:${queueName}`,
+	};
+}
+
+export function baseWorkerOptions(config: RedisOptions & RedisOptionsSource, workerOptions: Partial<Bull.WorkerOptions>, queueName: typeof QUEUE[keyof typeof QUEUE]): Bull.WorkerOptions {
+	return {
+		...workerOptions,
+		connection: {
+			...config,
+			maxRetriesPerRequest: null,
+			keyPrefix: undefined,
+			reconnectOnError: (err: Error) => {
+				if ( err.message.includes('READONLY')
+					|| err.message.includes('ETIMEDOUT')
+					|| err.message.includes('Command timed out')
+				) return 2;
+				return 1;
+			},
+		},
+		prefix: config.prefix ? `${config.prefix}:queue:${queueName}` : `queue:${queueName}`,
 	};
 }

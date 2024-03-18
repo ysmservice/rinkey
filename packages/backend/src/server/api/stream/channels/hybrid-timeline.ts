@@ -1,5 +1,5 @@
 /*
- * SPDX-FileCopyrightText: syuilo and other misskey contributors
+ * SPDX-FileCopyrightText: syuilo and misskey-project
  * SPDX-License-Identifier: AGPL-3.0-only
  */
 
@@ -12,12 +12,13 @@ import { MetaService } from '@/core/MetaService.js';
 import { NoteEntityService } from '@/core/entities/NoteEntityService.js';
 import { bindThis } from '@/decorators.js';
 import { RoleService } from '@/core/RoleService.js';
-import Channel from '../channel.js';
+import Channel, { type MiChannelService } from '../channel.js';
 
 class HybridTimelineChannel extends Channel {
 	public readonly chName = 'hybridTimeline';
-	public static shouldShare = false;
-	public static requireCredential = true;
+	public static readonly shouldShare = false;
+	public static readonly requireCredential = true as const;
+	public static readonly kind = 'read:account';
 	private withRenotes: boolean;
 	private withReplies: boolean;
 	private withFiles: boolean;
@@ -64,6 +65,9 @@ class HybridTimelineChannel extends Channel {
 			(note.channelId != null && this.followingChannels.has(note.channelId))
 		)) return;
 
+		// ファイルを含まない投稿は除外
+		if (this.withFiles && (note.files === undefined || note.files.length === 0)) return;
+
 		if (note.visibility === 'followers') {
 			if (!isMe && !Object.hasOwn(this.following, note.userId)) return;
 		} else if (note.visibility === 'specified') {
@@ -78,6 +82,8 @@ class HybridTimelineChannel extends Channel {
 			if ((this.following[note.userId]?.withReplies ?? false) || this.withReplies) {
 				// 自分のフォローしていないユーザーの visibility: followers な投稿への返信は弾く
 				if (reply.visibility === 'followers' && !Object.hasOwn(this.following, reply.userId)) return;
+				// 自分の見ることができないユーザーの visibility: specified な投稿への返信は弾く
+				if (reply.visibility === 'specified' && !reply.visibleUserIds!.includes(this.user!.id)) return;
 			} else {
 				// 「チャンネル接続主への返信」でもなければ、「チャンネル接続主が行った返信」でもなければ、「投稿者の投稿者自身への返信」でもない場合
 				if (reply.userId !== this.user!.id && !isMe && reply.userId !== note.userId) return;
@@ -95,7 +101,6 @@ class HybridTimelineChannel extends Channel {
 
 		if (this.user && note.renoteId && !note.text) {
 			if (note.renote && Object.keys(note.renote.reactions).length > 0) {
-				console.log(note.renote.reactionAndUserPairCache);
 				const myRenoteReaction = await this.noteEntityService.populateMyReaction(note.renote, this.user.id);
 				note.renote.myReaction = myRenoteReaction;
 			}
@@ -114,9 +119,10 @@ class HybridTimelineChannel extends Channel {
 }
 
 @Injectable()
-export class HybridTimelineChannelService {
+export class HybridTimelineChannelService implements MiChannelService<true> {
 	public readonly shouldShare = HybridTimelineChannel.shouldShare;
 	public readonly requireCredential = HybridTimelineChannel.requireCredential;
+	public readonly kind = HybridTimelineChannel.kind;
 
 	constructor(
 		private metaService: MetaService,

@@ -1,5 +1,5 @@
 /*
- * SPDX-FileCopyrightText: syuilo and other misskey contributors
+ * SPDX-FileCopyrightText: syuilo and misskey-project
  * SPDX-License-Identifier: AGPL-3.0-only
  */
 
@@ -14,6 +14,7 @@ export const meta = {
 	tags: ['pages'],
 
 	requireCredential: true,
+	requireRolePolicy: 'canUpdateContent',
 
 	prohibitMoved: true,
 
@@ -70,7 +71,7 @@ export default class extends Endpoint<typeof meta, typeof paramDef> { // eslint-
 			}
 
 			// if already liked
-			const exist = await this.pageLikesRepository.exist({
+			const exist = await this.pageLikesRepository.exists({
 				where: {
 					pageId: page.id,
 					userId: me.id,

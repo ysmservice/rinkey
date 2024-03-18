@@ -1,20 +1,19 @@
 /*
- * SPDX-FileCopyrightText: syuilo and other misskey contributors
+ * SPDX-FileCopyrightText: syuilo and misskey-project
  * SPDX-License-Identifier: AGPL-3.0-only
  */
 
 import { Inject, Injectable } from '@nestjs/common';
+import { In } from 'typeorm';
 import { DI } from '@/di-symbols.js';
 import type { ChannelFavoritesRepository, ChannelFollowingsRepository, ChannelsRepository, DriveFilesRepository, NotesRepository } from '@/models/_.js';
 import type { Packed } from '@/misc/json-schema.js';
-import type { } from '@/models/Blocking.js';
 import type { MiUser } from '@/models/User.js';
 import type { MiChannel } from '@/models/Channel.js';
 import { bindThis } from '@/decorators.js';
 import { IdService } from '@/core/IdService.js';
 import { DriveFileEntityService } from './DriveFileEntityService.js';
 import { NoteEntityService } from './NoteEntityService.js';
-import { In } from 'typeorm';
 
 @Injectable()
 export class ChannelEntityService {
@@ -43,7 +42,7 @@ export class ChannelEntityService {
 	@bindThis
 	public async pack(
 		src: MiChannel['id'] | MiChannel,
-		me?: { id: MiUser['id'] } | null | undefined,
+		me: { id: MiUser['id'] } | null | undefined,
 		detailed?: boolean,
 	): Promise<Packed<'Channel'>> {
 		const channel = typeof src === 'object' ? src : await this.channelsRepository.findOneByOrFail({ id: src });
@@ -51,14 +50,14 @@ export class ChannelEntityService {
 
 		const banner = channel.bannerId ? await this.driveFilesRepository.findOneBy({ id: channel.bannerId }) : null;
 
-		const isFollowing = meId ? await this.channelFollowingsRepository.exist({
+		const isFollowing = meId ? await this.channelFollowingsRepository.exists({
 			where: {
 				followerId: meId,
 				followeeId: channel.id,
 			},
 		}) : false;
 
-		const isFavorited = meId ? await this.channelFavoritesRepository.exist({
+		const isFavorited = meId ? await this.channelFavoritesRepository.exists({
 			where: {
 				userId: meId,
 				channelId: channel.id,
@@ -98,5 +97,14 @@ export class ChannelEntityService {
 			} : {}),
 		};
 	}
-}
 
+	public async packMany(
+		channels: (MiChannel['id'] | MiChannel)[],
+		me: { id: MiUser['id'] } | null | undefined,
+		detailed?: boolean,
+	): Promise<Packed<'Channel'>[]> {
+		return (await Promise.allSettled(channels.map(x => this.pack(x, me, detailed))))
+			.filter(result => result.status === 'fulfilled')
+			.map(result => (result as PromiseFulfilledResult<Packed<'Channel'>>).value);
+	}
+}

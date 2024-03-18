@@ -1,5 +1,5 @@
 /*
- * SPDX-FileCopyrightText: syuilo and other misskey contributors
+ * SPDX-FileCopyrightText: syuilo and misskey-project
  * SPDX-License-Identifier: AGPL-3.0-only
  */
 
@@ -10,12 +10,12 @@ import { NoteEntityService } from '@/core/entities/NoteEntityService.js';
 import { bindThis } from '@/decorators.js';
 import { RoleService } from '@/core/RoleService.js';
 import type { GlobalEvents } from '@/core/GlobalEventService.js';
-import Channel from '../channel.js';
+import Channel, { type MiChannelService } from '../channel.js';
 
 class RoleTimelineChannel extends Channel {
 	public readonly chName = 'roleTimeline';
-	public static shouldShare = false;
-	public static requireCredential = false;
+	public static readonly shouldShare = false;
+	public static readonly requireCredential = false as const;
 	private roleId: string;
 
 	constructor(
@@ -46,12 +46,29 @@ class RoleTimelineChannel extends Channel {
 			}
 			if (note.visibility !== 'public') return;
 
+			if (note.reply) {
+				const reply = note.reply;
+				// 自分のフォローしていないユーザーの visibility: followers な投稿への返信は弾く
+				if (reply.visibility === 'followers' && !Object.hasOwn(this.following, reply.userId)) return;
+				// 自分の見ることができないユーザーの visibility: specified な投稿への返信は弾く
+				if (reply.visibility === 'specified' && !reply.visibleUserIds!.includes(this.user!.id)) return;
+			}
+
 			// 流れてきたNoteがミュートしているユーザーが関わるものだったら無視する
 			if (isUserRelated(note, this.userIdsWhoMeMuting)) return;
 			// 流れてきたNoteがブロックされているユーザーが関わるものだったら無視する
 			if (isUserRelated(note, this.userIdsWhoBlockingMe)) return;
 
 			if (note.renote && !note.text && isUserRelated(note, this.userIdsWhoMeMutingRenotes)) return;
+
+			if (this.user && note.renoteId && !note.text) {
+				if (note.renote && Object.keys(note.renote.reactions).length > 0) {
+					const myRenoteReaction = await this.noteEntityService.populateMyReaction(note.renote, this.user.id);
+					note.renote.myReaction = myRenoteReaction;
+				}
+			}
+
+			this.connection.cacheNote(note);
 
 			this.send('note', note);
 		} else {
@@ -67,9 +84,10 @@ class RoleTimelineChannel extends Channel {
 }
 
 @Injectable()
-export class RoleTimelineChannelService {
+export class RoleTimelineChannelService implements MiChannelService<false> {
 	public readonly shouldShare = RoleTimelineChannel.shouldShare;
 	public readonly requireCredential = RoleTimelineChannel.requireCredential;
+	public readonly kind = RoleTimelineChannel.kind;
 
 	constructor(
 		private noteEntityService: NoteEntityService,

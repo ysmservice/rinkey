@@ -1,5 +1,5 @@
 /*
- * SPDX-FileCopyrightText: syuilo and other misskey contributors
+ * SPDX-FileCopyrightText: syuilo and misskey-project
  * SPDX-License-Identifier: AGPL-3.0-only
  */
 
@@ -20,6 +20,7 @@ import type Logger from '@/logger.js';
 import type { MiNote } from '@/models/Note.js';
 import type { IdService } from '@/core/IdService.js';
 import type { MfmService } from '@/core/MfmService.js';
+import type { RoleService } from '@/core/RoleService.js';
 import { toArray } from '@/misc/prelude/array.js';
 import type { GlobalEventService } from '@/core/GlobalEventService.js';
 import type { FederatedInstanceService } from '@/core/FederatedInstanceService.js';
@@ -38,6 +39,7 @@ import { MetaService } from '@/core/MetaService.js';
 import { DriveFileEntityService } from '@/core/entities/DriveFileEntityService.js';
 import type { AccountMoveService } from '@/core/AccountMoveService.js';
 import { checkHttps } from '@/misc/check-https.js';
+import { isNotNull } from '@/misc/is-not-null.js';
 import { getApId, getApType, getOneApHrefNullable, isActor, isCollection, isCollectionOrOrderedCollection, isPropertyValue } from '../type.js';
 import { extractApHashtags } from './tag.js';
 import type { OnModuleInit } from '@nestjs/common';
@@ -75,6 +77,7 @@ export class ApPersonService implements OnModuleInit {
 	private instanceChart: InstanceChart;
 	private apLoggerService: ApLoggerService;
 	private accountMoveService: AccountMoveService;
+	private roleService: RoleService;
 	private logger: Logger;
 
 	constructor(
@@ -123,6 +126,7 @@ export class ApPersonService implements OnModuleInit {
 		this.instanceChart = this.moduleRef.get('InstanceChart');
 		this.apLoggerService = this.moduleRef.get('ApLoggerService');
 		this.accountMoveService = this.moduleRef.get('AccountMoveService');
+		this.roleService = this.moduleRef.get('RoleService');
 		this.logger = this.apLoggerService.logger;
 	}
 
@@ -151,6 +155,21 @@ export class ApPersonService implements OnModuleInit {
 
 		if (!(typeof x.inbox === 'string' && x.inbox.length > 0)) {
 			throw new Error('invalid Actor: wrong inbox');
+		}
+
+		try {
+			new URL(x.inbox);
+		} catch {
+			throw new Error('invalid Actor: wrong inbox');
+		}
+
+		const sharedInbox = x.sharedInbox ?? x.endpoints?.sharedInbox;
+		if (typeof sharedInbox === 'string') {
+			try {
+				new URL(sharedInbox);
+			} catch {
+				throw new Error('invalid Actor: wrong sharedInbox');
+			}
 		}
 
 		if (!(typeof x.preferredUsername === 'string' && x.preferredUsername.length > 0 && x.preferredUsername.length <= 128 && /^\w([\w-.]*\w)?$/.test(x.preferredUsername))) {
@@ -206,7 +225,7 @@ export class ApPersonService implements OnModuleInit {
 		if (cached) return cached;
 
 		// URIがこのサーバーを指しているならデータベースからフェッチ
-		if (uri.startsWith(`${this.config.url}/`)) {
+		if (new URL(uri).origin === this.config.url) {
 			const id = uri.split('/').pop();
 			const u = await this.usersRepository.findOneBy({ id }) as MiLocalUser | null;
 			if (u) this.cacheService.uriPersonCache.set(uri, u);
@@ -225,20 +244,37 @@ export class ApPersonService implements OnModuleInit {
 		return null;
 	}
 
-	private async resolveAvatarAndBanner(user: MiRemoteUser, icon: any, image: any): Promise<Pick<MiRemoteUser, 'avatarId' | 'bannerId' | 'avatarUrl' | 'bannerUrl' | 'avatarBlurhash' | 'bannerBlurhash'>> {
+	private async resolveAvatarAndBanner(user: MiRemoteUser, icon: any, image: any): Promise<Partial<Pick<MiRemoteUser, 'avatarId' | 'bannerId' | 'avatarUrl' | 'bannerUrl' | 'avatarBlurhash' | 'bannerBlurhash'>>> {
+		if (user == null) throw new Error('failed to create user: user is null');
+
 		const [avatar, banner] = await Promise.all([icon, image].map(img => {
-			if (img == null) return null;
-			if (user == null) throw new Error('failed to create user: user is null');
+			// if we have an explicitly missing image, return an
+			// explicitly-null set of values
+			if ((img == null) || (typeof img === 'object' && img.url == null)) {
+				return { id: null, url: null, blurhash: null };
+			}
+
 			return this.apImageService.resolveImage(user, img).catch(() => null);
 		}));
 
+		/*
+			we don't want to return nulls on errors! if the database fields
+			are already null, nothing changes; if the database has old
+			values, we should keep those. The exception is if the remote has
+			actually removed the images: in that case, the block above
+			returns the special {id:null}&c value, and we return those
+		*/
 		return {
-			avatarId: avatar?.id ?? null,
-			bannerId: banner?.id ?? null,
-			avatarUrl: avatar ? this.driveFileEntityService.getPublicUrl(avatar, 'avatar') : null,
-			bannerUrl: banner ? this.driveFileEntityService.getPublicUrl(banner) : null,
-			avatarBlurhash: avatar?.blurhash ?? null,
-			bannerBlurhash: banner?.blurhash ?? null,
+			...( avatar ? {
+				avatarId: avatar.id,
+				avatarUrl: avatar.url ? this.driveFileEntityService.getPublicUrl(avatar, 'avatar') : null,
+				avatarBlurhash: avatar.blurhash,
+			} : {}),
+			...( banner ? {
+				bannerId: banner.id,
+				bannerUrl: banner.url ? this.driveFileEntityService.getPublicUrl(banner) : null,
+				bannerBlurhash: banner.blurhash,
+			} : {}),
 		};
 	}
 
@@ -249,7 +285,7 @@ export class ApPersonService implements OnModuleInit {
 	public async createPerson(uri: string, resolver?: Resolver): Promise<MiRemoteUser> {
 		if (typeof uri !== 'string') throw new Error('uri is not string');
 
-		if (uri.startsWith(this.config.url)) {
+		if (new URL(uri).origin === this.config.url) {
 			throw new StatusError('cannot resolve local user', 400, 'cannot resolve local user');
 		}
 
@@ -286,7 +322,7 @@ export class ApPersonService implements OnModuleInit {
 		const emojis = await this.apNoteService.extractEmojis(person.tag ?? [], host)
 			.then(_emojis => _emojis.map(emoji => emoji.name))
 			.catch(err => {
-				this.logger.error('error occurred while fetching user emojis', { stack: err });
+				this.logger.error('error occurred while fetching user emojis', { error: err });
 				return [];
 			});
 		//#endregion
@@ -354,7 +390,7 @@ export class ApPersonService implements OnModuleInit {
 
 				user = u as MiRemoteUser;
 			} else {
-				this.logger.error(e instanceof Error ? e : new Error(e as string));
+				this.logger.error('error occurred while creating user', { error: e });
 				throw e;
 			}
 		}
@@ -387,7 +423,7 @@ export class ApPersonService implements OnModuleInit {
 			// Register to the cache
 			this.cacheService.uriPersonCache.set(user.uri, user);
 		} catch (err) {
-			this.logger.error('error occurred while fetching user avatar/banner', { stack: err });
+			this.logger.error('error occurred while fetching user avatar/banner', { error: err });
 		}
 		//#endregion
 
@@ -411,7 +447,7 @@ export class ApPersonService implements OnModuleInit {
 		if (typeof uri !== 'string') throw new Error('uri is not string');
 
 		// URIがこのサーバーを指しているならスキップ
-		if (uri.startsWith(`${this.config.url}/`)) return;
+		if (new URL(uri).origin === this.config.url) return;
 
 		//#region このサーバーに既に登録されているか
 		const exist = await this.fetchPerson(uri) as MiRemoteUser | null;
@@ -447,6 +483,8 @@ export class ApPersonService implements OnModuleInit {
 			throw new Error('unexpected schema of person url: ' + url);
 		}
 
+		const policy = await this.roleService.getUserPolicies(exist.id);
+
 		const updates = {
 			lastFetchedAt: new Date(),
 			inbox: person.inbox,
@@ -462,7 +500,7 @@ export class ApPersonService implements OnModuleInit {
 			movedToUri: person.movedTo ?? null,
 			alsoKnownAs: person.alsoKnownAs ?? null,
 			isExplorable: person.discoverable,
-			...(await this.resolveAvatarAndBanner(exist, person.icon, person.image).catch(() => ({}))),
+			...((policy.canUpdateAvatar || policy.canUpdateBanner) ? await this.resolveAvatarAndBanner(exist, policy.canUpdateAvatar ? person.icon : exist.avatarUrl, policy.canUpdateBanner ? person.image : exist.bannerUrl).catch(() => ({})) : {}),
 		} as Partial<MiRemoteUser> & Pick<MiRemoteUser, 'isBot' | 'isCat' | 'isLocked' | 'movedToUri' | 'alsoKnownAs' | 'isExplorable'>;
 
 		const moving = ((): boolean => {
@@ -619,7 +657,7 @@ export class ApPersonService implements OnModuleInit {
 
 			// とりあえずidを別の時間で生成して順番を維持
 			let td = 0;
-			for (const note of featuredNotes.filter((note): note is MiNote => note != null)) {
+			for (const note of featuredNotes.filter(isNotNull)) {
 				td -= 1000;
 				transactionalEntityManager.insert(MiUserNotePining, {
 					id: this.idService.gen(Date.now() + td),
@@ -654,7 +692,7 @@ export class ApPersonService implements OnModuleInit {
 			await this.updatePerson(src.movedToUri, undefined, undefined, [...movePreventUris, src.uri]);
 			dst = await this.fetchPerson(src.movedToUri) ?? dst;
 		} else {
-			if (src.movedToUri.startsWith(`${this.config.url}/`)) {
+			if (new URL(src.movedToUri).origin === this.config.url) {
 				// ローカルユーザーっぽいのにfetchPersonで見つからないということはmovedToUriが間違っている
 				return 'failed: movedTo is local but not found';
 			}

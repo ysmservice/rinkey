@@ -1,5 +1,5 @@
 /*
- * SPDX-FileCopyrightText: syuilo and other misskey contributors
+ * SPDX-FileCopyrightText: syuilo and misskey-project
  * SPDX-License-Identifier: AGPL-3.0-only
  */
 
@@ -11,12 +11,12 @@ import { MetaService } from '@/core/MetaService.js';
 import { NoteEntityService } from '@/core/entities/NoteEntityService.js';
 import { bindThis } from '@/decorators.js';
 import { RoleService } from '@/core/RoleService.js';
-import Channel from '../channel.js';
+import Channel, { type MiChannelService } from '../channel.js';
 
 class LocalTimelineChannel extends Channel {
 	public readonly chName = 'localTimeline';
-	public static shouldShare = false;
-	public static requireCredential = false;
+	public static readonly shouldShare = false;
+	public static readonly requireCredential = false as const;
 	private withRenotes: boolean;
 	private withReplies: boolean;
 	private withFiles: boolean;
@@ -54,11 +54,21 @@ class LocalTimelineChannel extends Channel {
 		if (note.visibility !== 'public') return;
 		if (note.channelId != null) return;
 
+		// ファイルを含まない投稿は除外
+		if (this.withFiles && (note.files === undefined || note.files.length === 0)) return;
+
 		// 関係ない返信は除外
-		if (note.reply && this.user && !this.following[note.userId]?.withReplies && !this.withReplies) {
+		if (note.reply) {
 			const reply = note.reply;
-			// 「チャンネル接続主への返信」でもなければ、「チャンネル接続主が行った返信」でもなければ、「投稿者の投稿者自身への返信」でもない場合
-			if (reply.userId !== this.user.id && note.userId !== this.user.id && reply.userId !== note.userId) return;
+			if ((this.following[note.userId]?.withReplies ?? false) || this.withReplies) {
+				// 自分のフォローしていないユーザーの visibility: followers な投稿への返信は弾く
+				if (reply.visibility === 'followers' && !Object.hasOwn(this.following, reply.userId)) return;
+				// 自分の見ることができないユーザーの visibility: specified な投稿への返信は弾く
+				if (reply.visibility === 'specified' && !reply.visibleUserIds!.includes(this.user!.id)) return;
+			} else {
+				// 「チャンネル接続主への返信」でもなければ、「チャンネル接続主が行った返信」でもなければ、「投稿者の投稿者自身への返信」でもない場合
+				if (reply.userId !== this.user!.id && note.userId !== this.user!.id && reply.userId !== note.userId) return;
+			}
 		}
 
 		if (note.renote && note.text == null && (note.fileIds == null || note.fileIds.length === 0) && !this.withRenotes) return;
@@ -90,9 +100,10 @@ class LocalTimelineChannel extends Channel {
 }
 
 @Injectable()
-export class LocalTimelineChannelService {
+export class LocalTimelineChannelService implements MiChannelService<false> {
 	public readonly shouldShare = LocalTimelineChannel.shouldShare;
 	public readonly requireCredential = LocalTimelineChannel.requireCredential;
+	public readonly kind = LocalTimelineChannel.kind;
 
 	constructor(
 		private metaService: MetaService,

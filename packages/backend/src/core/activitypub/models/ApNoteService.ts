@@ -1,5 +1,5 @@
 /*
- * SPDX-FileCopyrightText: syuilo and other misskey contributors
+ * SPDX-FileCopyrightText: syuilo and misskey-project
  * SPDX-License-Identifier: AGPL-3.0-only
  */
 
@@ -7,7 +7,7 @@ import { forwardRef, Inject, Injectable } from '@nestjs/common';
 import promiseLimit from 'promise-limit';
 import { In } from 'typeorm';
 import { DI } from '@/di-symbols.js';
-import type { PollsRepository, EmojisRepository } from '@/models/_.js';
+import type { UsersRepository, PollsRepository, EmojisRepository } from '@/models/_.js';
 import type { Config } from '@/config.js';
 import type { MiRemoteUser } from '@/models/User.js';
 import type { MiNote } from '@/models/Note.js';
@@ -24,6 +24,8 @@ import { StatusError } from '@/misc/status-error.js';
 import { UtilityService } from '@/core/UtilityService.js';
 import { bindThis } from '@/decorators.js';
 import { checkHttps } from '@/misc/check-https.js';
+import { IdentifiableError } from '@/misc/identifiable-error.js';
+import { isNotNull } from '@/misc/is-not-null.js';
 import { getOneApId, getApId, getOneApHrefNullable, validPost, isEmoji, getApType } from '../type.js';
 import { ApLoggerService } from '../ApLoggerService.js';
 import { ApMfmService } from '../ApMfmService.js';
@@ -45,6 +47,9 @@ export class ApNoteService {
 	constructor(
 		@Inject(DI.config)
 		private config: Config,
+
+		@Inject(DI.usersRepository)
+		private usersRepository: UsersRepository,
 
 		@Inject(DI.pollsRepository)
 		private pollsRepository: PollsRepository,
@@ -92,6 +97,10 @@ export class ApNoteService {
 			return new Error(`invalid Note: attributedTo has different host. expected: ${expectHost}, actual: ${actualHost}`);
 		}
 
+		if (object.published && !this.idService.isSafeT(new Date(object.published).valueOf())) {
+			return new Error('invalid Note: published timestamp is malformed');
+		}
+
 		return null;
 	}
 
@@ -113,6 +122,8 @@ export class ApNoteService {
 		// eslint-disable-next-line no-param-reassign
 		if (resolver == null) resolver = this.apResolverService.createResolver();
 
+		const meta = await this.metaService.fetch();
+
 		const object = await resolver.resolve(value);
 
 		const entryUri = getApId(value);
@@ -122,8 +133,9 @@ export class ApNoteService {
 				resolver: { history: resolver.getHistory() },
 				value,
 				object,
+				error: err
 			});
-			throw new Error('invalid note');
+			throw err;
 		}
 
 		const note = object as IPost;
@@ -147,11 +159,47 @@ export class ApNoteService {
 			throw new Error('invalid note.attributedTo: ' + note.attributedTo);
 		}
 
-		const actor = await this.apPersonService.resolvePerson(getOneApId(note.attributedTo), resolver) as MiRemoteUser;
+		const uri = getOneApId(note.attributedTo);
 
-		// 投稿者が凍結されていたらスキップ
+		// ローカルで投稿者を検索し、もし凍結されていたらスキップ
+		const cachedActor = await this.apPersonService.fetchPerson(uri) as MiRemoteUser;
+		if (cachedActor && cachedActor.isSuspended) {
+			throw new IdentifiableError('85ab9bd7-3a41-4530-959d-f07073900109', `User ${cachedActor.id} has been suspended.`);
+		}
+
+		const apMentions = await this.apMentionService.extractApMentions(note.tag, resolver);
+		const apHashtags = extractApHashtags(note.tag);
+
+		const cw = note.summary === '' ? null : note.summary;
+
+		// テキストのパース
+		let text: string | null = null;
+		if (note.source?.mediaType === 'text/x.misskeymarkdown' && typeof note.source.content === 'string') {
+			text = note.source.content;
+		} else if (typeof note._misskey_content !== 'undefined') {
+			text = note._misskey_content;
+		} else if (typeof note.content === 'string') {
+			text = this.apMfmService.htmlToMfm(note.content, note.tag);
+		}
+
+		const poll = await this.apQuestionService.extractPollFromQuestion(note, resolver).catch(() => undefined);
+
+		//#region Contents Check
+		// 添付ファイルとユーザーをこのサーバーで登録する前に内容をチェックする
+		/**
+		 * 禁止ワードチェック
+		 */
+		const hasProhibitedWords = await this.noteCreateService.checkProhibitedWordsContain(meta.prohibitedWords, { cw, text, pollChoices: poll?.choices });
+		if (hasProhibitedWords) {
+			throw new IdentifiableError('689ee33f-f97c-479a-ac49-1b9f8140af99', 'Notes including prohibited words are not allowed.');
+		}
+		//#endregion
+
+		const actor = cachedActor ?? await this.apPersonService.resolvePerson(uri, resolver) as MiRemoteUser;
+
+		// 解決した投稿者が凍結されていたらスキップ
 		if (actor.isSuspended) {
-			throw new Error('actor has been suspended');
+			throw new IdentifiableError('85ab9bd7-3a41-4530-959d-f07073900109', `User ${actor.id} has been suspended.`);
 		}
 
 		const noteAudience = await this.apAudienceService.parseAudience(actor, note.to, note.cc, resolver);
@@ -166,8 +214,7 @@ export class ApNoteService {
 			}
 		}
 
-		const apMentions = await this.apMentionService.extractApMentions(note.tag, resolver);
-		const apHashtags = extractApHashtags(note.tag);
+		const isSensitiveMediaHost = this.utilityService.isSensitiveMediaHost(meta.sensitiveMediaHosts, this.utilityService.extractDbHost(note.id ?? entryUri));
 
 		// 添付ファイル
 		// TODO: attachmentは必ずしもImageではない
@@ -176,7 +223,7 @@ export class ApNoteService {
 		const files = (await Promise.all(toArray(note.attachment).map(attach => (
 			limit(() => this.apImageService.resolveImage(actor, {
 				...attach,
-				sensitive: note.sensitive, // Noteがsensitiveなら添付もsensitiveにする
+				sensitive: isSensitiveMediaHost || note.sensitive, // Noteがsensitiveなら添付もsensitiveにする
 			}))
 		))));
 
@@ -212,12 +259,12 @@ export class ApNoteService {
 					return { status: 'ok', res };
 				} catch (e) {
 					return {
-						status: (e instanceof StatusError && e.isClientError) ? 'permerror' : 'temperror',
+						status: (e instanceof StatusError && !e.isRetryable) ? 'permerror' : 'temperror',
 					};
 				}
 			};
 
-			const uris = unique([note._misskey_quote, note.quoteUrl].filter((x): x is string => typeof x === 'string'));
+			const uris = unique([note._misskey_quote, note.quoteUrl].filter(isNotNull));
 			const results = await Promise.all(uris.map(tryResolveNote));
 
 			quote = results.filter((x): x is { status: 'ok', res: MiNote } => x.status === 'ok').map(x => x.res).at(0);
@@ -226,18 +273,6 @@ export class ApNoteService {
 					throw new Error('quote resolve failed');
 				}
 			}
-		}
-
-		const cw = note.summary === '' ? null : note.summary;
-
-		// テキストのパース
-		let text: string | null = null;
-		if (note.source?.mediaType === 'text/x.misskeymarkdown' && typeof note.source.content === 'string') {
-			text = note.source.content;
-		} else if (typeof note._misskey_content !== 'undefined') {
-			text = note._misskey_content;
-		} else if (typeof note.content === 'string') {
-			text = this.apMfmService.htmlToMfm(note.content, note.tag);
 		}
 
 		// vote
@@ -268,8 +303,6 @@ export class ApNoteService {
 		});
 
 		const apEmojis = emojis.map(emoji => emoji.name);
-
-		const poll = await this.apQuestionService.extractPollFromQuestion(note, resolver).catch(() => undefined);
 
 		try {
 			return await this.noteCreateService.create(actor, {
@@ -327,7 +360,7 @@ export class ApNoteService {
 			if (exist) return exist;
 			//#endregion
 
-			if (uri.startsWith(this.config.url)) {
+			if (new URL(uri).origin === this.config.url) {
 				throw new StatusError('cannot resolve local note', 400, 'cannot resolve local note');
 			}
 

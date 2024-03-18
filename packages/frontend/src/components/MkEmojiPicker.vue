@@ -1,11 +1,11 @@
 <!--
-SPDX-FileCopyrightText: syuilo and other misskey contributors
+SPDX-FileCopyrightText: syuilo and misskey-project
 SPDX-License-Identifier: AGPL-3.0-only
 -->
 
 <template>
 <div class="omfetrab" :class="['s' + size, 'w' + width, 'h' + height, { asDrawer, asWindow }]" :style="{ maxHeight: maxHeight ? maxHeight + 'px' : undefined }">
-	<input ref="searchEl" :value="q" class="search" data-prevent-emoji-insert :class="{ filled: q != null && q != '' }" :placeholder="i18n.ts.search" type="search" autocapitalize="off" @input="input()" @paste.stop="paste" @keydown.stop.prevent.enter="onEnter">
+	<input ref="searchEl" :value="q" class="mk-input-search search" data-prevent-emoji-insert :class="{ filled: q != null && q != '' }" :placeholder="i18n.ts.search" type="text" autocapitalize="off" @input="input()" @paste.stop="paste" @keydown.stop.prevent.enter="onEnter">
 	<!-- FirefoxのTabフォーカスが想定外の挙動となるためtabindex="-1"を追加 https://github.com/misskey-dev/misskey/issues/10744 -->
 	<div ref="emojisEl" class="emojis" tabindex="-1">
 		<section class="result">
@@ -14,6 +14,7 @@ SPDX-License-Identifier: AGPL-3.0-only
 					v-for="emoji in searchResultCustom"
 					:key="emoji.name"
 					class="_button item"
+					:disabled="!canReact(emoji)"
 					:title="emoji.name"
 					tabindex="0"
 					@click="chosen(emoji, $event)"
@@ -36,19 +37,20 @@ SPDX-License-Identifier: AGPL-3.0-only
 		</section>
 
 		<div v-if="tab === 'index'" class="group index">
-			<section v-if="showPinned">
+			<section v-if="showPinned && (pinned && pinned.length > 0)">
 				<div class="body">
 					<button
-						v-for="emoji in pinned"
-						:key="emoji"
-						:data-emoji="emoji"
+						v-for="emoji in pinnedEmojisDef"
+						:key="getKey(emoji)"
+						:data-emoji="getKey(emoji)"
 						class="_button item"
+						:disabled="!canReact(emoji)"
 						tabindex="0"
 						@pointerenter="computeButtonTitle"
 						@click="chosen(emoji, $event)"
 					>
-						<MkCustomEmoji v-if="emoji[0] === ':'" class="emoji" :name="emoji" :normal="true"/>
-						<MkEmoji v-else class="emoji" :emoji="emoji" :normal="true"/>
+						<MkCustomEmoji v-if="typeof emoji !== 'string' && !Object.hasOwn(emoji, 'char')" class="emoji" :name="getKey(emoji)" :normal="true"/>
+						<MkEmoji v-else class="emoji" :emoji="getKey(emoji)" :normal="true"/>
 					</button>
 				</div>
 			</section>
@@ -57,15 +59,16 @@ SPDX-License-Identifier: AGPL-3.0-only
 				<header class="_acrylic"><i class="ti ti-clock ti-fw"></i> {{ i18n.ts.recentUsed }}</header>
 				<div class="body">
 					<button
-						v-for="emoji in recentlyUsedEmojis"
-						:key="emoji"
+						v-for="emoji in recentlyUsedEmojisDef"
+						:key="getKey(emoji)"
 						class="_button item"
-						:data-emoji="emoji"
+						:disabled="!canReact(emoji)"
+						:data-emoji="getKey(emoji)"
 						@pointerenter="computeButtonTitle"
 						@click="chosen(emoji, $event)"
 					>
-						<MkCustomEmoji v-if="emoji[0] === ':'" class="emoji" :name="emoji" :normal="true"/>
-						<MkEmoji v-else class="emoji" :emoji="emoji" :normal="true"/>
+						<MkCustomEmoji v-if="typeof emoji !== 'string' && !Object.hasOwn(emoji, 'char')" class="emoji" :name="getKey(emoji)" :normal="true"/>
+						<MkEmoji v-else class="emoji" :emoji="getKey(emoji)" :normal="true"/>
 					</button>
 				</div>
 			</section>
@@ -73,18 +76,21 @@ SPDX-License-Identifier: AGPL-3.0-only
 		<div v-once class="group">
 			<header class="_acrylic">{{ i18n.ts.customEmojis }}</header>
 			<XSection
-				v-for="category in customEmojiCategories"
-				:key="`custom:${category}`"
+				v-for="child in customEmojiFolderRoot.children"
+				:key="`custom:${child.category}`"
 				:initialShown="false"
-				:emojis="computed(() => customEmojis.filter(e => category === null ? (e.category === 'null' || !e.category) : e.category === category).filter(filterAvailable).map(e => `:${e.name}:`))"
+				:emojis="computed(() => customEmojis.filter(e => filterCategory(e, child.category)).map(e => `:${e.name}:`))"
+				:disabledEmojis="computed(() => customEmojis.filter(e => filterCategory(e, child.category)).filter(e => !canReact(e)).map(e => `:${e.name}:`))"
+				:hasChildSection="child.children.length !== 0"
+				:customEmojiTree="child.children"
 				@chosen="chosen"
 			>
-				{{ category || i18n.ts.other }}
+				{{ child.category || i18n.ts.other }}
 			</XSection>
 		</div>
 		<div v-once class="group">
 			<header class="_acrylic">{{ i18n.ts.emoji }}</header>
-			<XSection v-for="category in categories" :key="category" :emojis="emojiCharByCategory.get(category) ?? []" @chosen="chosen">{{ category }}</XSection>
+			<XSection v-for="category in categories" :key="category" :emojis="emojiCharByCategory.get(category) ?? []" :hasChildSection="false" @chosen="chosen">{{ category }}</XSection>
 		</div>
 	</div>
 	<div class="tabs">
@@ -100,7 +106,14 @@ SPDX-License-Identifier: AGPL-3.0-only
 import { ref, shallowRef, computed, watch, onMounted } from 'vue';
 import * as Misskey from 'misskey-js';
 import XSection from '@/components/MkEmojiPicker.section.vue';
-import { emojilist, emojiCharByCategory, UnicodeEmojiDef, unicodeEmojiCategories as categories, getEmojiName } from '@/scripts/emojilist.js';
+import {
+	emojilist,
+	emojiCharByCategory,
+	UnicodeEmojiDef,
+	unicodeEmojiCategories as categories,
+	getEmojiName,
+	CustomEmojiFolderTree,
+} from '@/scripts/emojilist.js';
 import MkRippleEffect from '@/components/MkRippleEffect.vue';
 import * as os from '@/os.js';
 import { isTouchUsing } from '@/scripts/touch.js';
@@ -109,13 +122,16 @@ import { i18n } from '@/i18n.js';
 import { defaultStore } from '@/store.js';
 import { customEmojiCategories, customEmojis, customEmojisMap } from '@/custom-emojis.js';
 import { $i } from '@/account.js';
+import { checkReactionPermissions } from '@/scripts/check-reaction-permissions.js';
 
 const props = withDefaults(defineProps<{
 	showPinned?: boolean;
-	asReactionPicker?: boolean;
+  pinnedEmojis?: string[];
 	maxHeight?: number;
 	asDrawer?: boolean;
 	asWindow?: boolean;
+	asReactionPicker?: boolean; // 今は使われてないが将来的に使いそう
+	targetNote?: Misskey.entities.Note;
 }>(), {
 	showPinned: true,
 });
@@ -128,21 +144,60 @@ const searchEl = shallowRef<HTMLInputElement>();
 const emojisEl = shallowRef<HTMLDivElement>();
 
 const {
-	reactions: pinned,
-	reactionPickerSize,
-	reactionPickerWidth,
-	reactionPickerHeight,
-	disableShowingAnimatedImages,
+	emojiPickerScale,
+	emojiPickerWidth,
+	emojiPickerHeight,
 	recentlyUsedEmojis,
 } = defaultStore.reactiveState;
 
-const size = computed(() => props.asReactionPicker ? reactionPickerSize.value : 1);
-const width = computed(() => props.asReactionPicker ? reactionPickerWidth.value : 3);
-const height = computed(() => props.asReactionPicker ? reactionPickerHeight.value : 2);
+const recentlyUsedEmojisDef = computed(() => {
+	return recentlyUsedEmojis.value.map(getDef).filter(x => x !== null);
+});
+const pinnedEmojisDef = computed(() => {
+	return pinned.value?.map(getDef).filter(x => x !== null) ?? [];
+});
+
+const pinned = computed(() => props.pinnedEmojis);
+const size = computed(() => emojiPickerScale.value);
+const width = computed(() => emojiPickerWidth.value);
+const height = computed(() => emojiPickerHeight.value);
 const q = ref<string>('');
-const searchResultCustom = ref<Misskey.entities.CustomEmoji[]>([]);
+const searchResultCustom = ref<Misskey.entities.EmojiSimple[]>([]);
 const searchResultUnicode = ref<UnicodeEmojiDef[]>([]);
 const tab = ref<'index' | 'custom' | 'unicode' | 'tags'>('index');
+
+const customEmojiFolderRoot: CustomEmojiFolderTree = { category: '', children: [] };
+
+function parseAndMergeCategories(input: string, root: CustomEmojiFolderTree): CustomEmojiFolderTree {
+	const parts = (input && input !== 'null' ? input : '').split(' / ');
+	let currentNode: CustomEmojiFolderTree = root;
+
+	for (const part of parts) {
+		const path = currentNode.category ? `${currentNode.category} / ${part}` : part;
+
+		let existingNode = currentNode.children.find((node) => node.category === path);
+		if (!existingNode) {
+			const newNode: CustomEmojiFolderTree = {
+				category: path,
+				children: [],
+			};
+			currentNode.children.push(newNode);
+			existingNode = newNode;
+		}
+
+		currentNode = existingNode;
+	}
+
+	return currentNode;
+}
+
+customEmojiCategories.value.forEach(ec => {
+	if (ec !== null) {
+		parseAndMergeCategories(ec, customEmojiFolderRoot);
+	}
+});
+
+parseAndMergeCategories('', customEmojiFolderRoot);
 
 watch(q, () => {
 	if (emojisEl.value) emojisEl.value.scrollTop = 0;
@@ -158,7 +213,7 @@ watch(q, () => {
 	const searchCustom = () => {
 		const max = 100;
 		const emojis = customEmojis.value;
-		const matches = new Set<Misskey.entities.CustomEmoji>();
+		const matches = new Set<Misskey.entities.EmojiSimple>();
 
 		const exactMatch = emojis.find(emoji => emoji.name === newQ);
 		if (exactMatch) matches.add(exactMatch);
@@ -183,6 +238,19 @@ watch(q, () => {
 				}
 			}
 		} else {
+			if (customEmojisMap.has(newQ)) {
+				matches.add(customEmojisMap.get(newQ)!);
+			}
+			if (matches.size >= max) return matches;
+
+			for (const emoji of emojis) {
+				if (emoji.aliases.some(alias => alias === newQ)) {
+					matches.add(emoji);
+					if (matches.size >= max) break;
+				}
+			}
+			if (matches.size >= max) return matches;
+
 			for (const emoji of emojis) {
 				if (emoji.name.startsWith(newQ)) {
 					matches.add(emoji);
@@ -284,12 +352,16 @@ watch(q, () => {
 		return matches;
 	};
 
-	searchResultCustom.value = Array.from(searchCustom()).filter(filterAvailable);
+	searchResultCustom.value = Array.from(searchCustom());
 	searchResultUnicode.value = Array.from(searchUnicode());
 });
 
-function filterAvailable(emoji: Misskey.entities.CustomEmoji): boolean {
-	return (emoji.roleIdsThatCanBeUsedThisEmojiAsReaction == null || emoji.roleIdsThatCanBeUsedThisEmojiAsReaction.length === 0) || ($i && $i.roles.some(r => emoji.roleIdsThatCanBeUsedThisEmojiAsReaction.includes(r.id)));
+function canReact(emoji: string | UnicodeEmojiDef | Misskey.entities.EmojiSimple): boolean {
+	return !props.targetNote || typeof emoji === 'string' || Object.hasOwn(emoji, 'char') || checkReactionPermissions($i!, props.targetNote, emoji);
+}
+
+function filterCategory(emoji: Misskey.entities.EmojiSimple, category: string): boolean {
+	return category === '' ? (emoji.category === 'null' || !emoji.category) : emoji.category === category;
 }
 
 function focus() {
@@ -305,15 +377,30 @@ function reset() {
 	q.value = '';
 }
 
-function getKey(emoji: string | Misskey.entities.CustomEmoji | UnicodeEmojiDef): string {
-	return typeof emoji === 'string' ? emoji : 'char' in emoji ? emoji.char : `:${emoji.name}:`;
+function getKey(emoji: string | UnicodeEmojiDef | Misskey.entities.EmojiSimple): string {
+	if (typeof emoji === 'string') {
+		return emoji;
+	} else if (Object.hasOwn(emoji, 'char')) {
+		return (emoji as UnicodeEmojiDef).char;
+	} else {
+		return `:${emoji.name}:`;
+	}
+}
+
+function getDef(emoji: string): string | Misskey.entities.EmojiSimple | UnicodeEmojiDef | null {
+	if (emoji.includes(':')) {
+		const name = emoji.replaceAll(':', '');
+		return customEmojisMap.get(name) ?? null;
+	} else {
+		return emoji;
+	}
 }
 
 /** @see MkEmojiPicker.section.vue */
 function computeButtonTitle(ev: MouseEvent): void {
 	const elm = ev.target as HTMLElement;
 	const emoji = elm.dataset.emoji as string;
-	elm.title = getEmojiName(emoji) ?? emoji;
+	elm.title = getEmojiName(emoji);
 }
 
 function chosen(emoji: any, ev?: MouseEvent) {
@@ -329,7 +416,7 @@ function chosen(emoji: any, ev?: MouseEvent) {
 	emit('chosen', key);
 
 	// 最近使った絵文字更新
-	if (!pinned.value.includes(key)) {
+	if (!pinned.value?.includes(key)) {
 		let recents = defaultStore.state.recentlyUsedEmojis;
 		recents = recents.filter((emoji: any) => emoji !== key);
 		recents.unshift(key);
@@ -473,6 +560,18 @@ defineExpose({
 						width: auto;
 						height: auto;
 						min-width: 0;
+
+						&:disabled {
+							cursor: not-allowed;
+							background: linear-gradient(-45deg, transparent 0% 48%, var(--X6) 48% 52%, transparent 52% 100%);
+							opacity: 1;
+
+							> .emoji {
+								filter: grayscale(1);
+								mix-blend-mode: exclusion;
+								opacity: 0.8;
+							}
+						}
 					}
 				}
 			}
@@ -495,6 +594,18 @@ defineExpose({
 						width: auto;
 						height: auto;
 						min-width: 0;
+
+						&:disabled {
+							cursor: not-allowed;
+							background: linear-gradient(-45deg, transparent 0% 48%, var(--X6) 48% 52%, transparent 52% 100%);
+							opacity: 1;
+
+							> .emoji {
+								filter: grayscale(1);
+								mix-blend-mode: exclusion;
+								opacity: 0.8;
+							}
+						}
 					}
 				}
 			}
@@ -572,8 +683,7 @@ defineExpose({
 				position: sticky;
 				top: 0;
 				left: 0;
-				height: 32px;
-				line-height: 32px;
+				line-height: 28px;
 				z-index: 1;
 				padding: 0 8px;
 				font-size: 12px;
@@ -609,6 +719,18 @@ defineExpose({
 					&:active {
 						background: var(--accent);
 						box-shadow: inset 0 0.15em 0.3em rgba(27, 31, 35, 0.15);
+					}
+
+					&:disabled {
+						cursor: not-allowed;
+						background: linear-gradient(-45deg, transparent 0% 48%, var(--X6) 48% 52%, transparent 52% 100%);
+						opacity: 1;
+
+						> .emoji {
+							filter: grayscale(1);
+							mix-blend-mode: exclusion;
+							opacity: 0.8;
+						}
 					}
 
 					> .emoji {

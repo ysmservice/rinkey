@@ -1,10 +1,10 @@
 /*
- * SPDX-FileCopyrightText: syuilo and other misskey contributors
+ * SPDX-FileCopyrightText: syuilo and misskey-project
  * SPDX-License-Identifier: AGPL-3.0-only
  */
 
-import type { Schema } from '@/misc/json-schema.js';
-import { RolePolicies } from '@/core/RoleService.js';
+import { permissions } from 'misskey-js';
+import type { KeyOf, Schema } from '@/misc/json-schema.js';
 
 import * as ep___admin_meta from './endpoints/admin/meta.js';
 import * as ep___admin_abuseUserReports from './endpoints/admin/abuse-user-reports.js';
@@ -19,15 +19,19 @@ import * as ep___admin_announcements_create from './endpoints/admin/announcement
 import * as ep___admin_announcements_delete from './endpoints/admin/announcements/delete.js';
 import * as ep___admin_announcements_list from './endpoints/admin/announcements/list.js';
 import * as ep___admin_announcements_update from './endpoints/admin/announcements/update.js';
+import * as ep___admin_abuseReportResolver_create from './endpoints/admin/abuse-report-resolver/create.js';
+import * as ep___admin_abuseReportResolver_update from './endpoints/admin/abuse-report-resolver/update.js';
+import * as ep___admin_abuseReportResolver_delete from './endpoints/admin/abuse-report-resolver/delete.js';
+import * as ep___admin_abuseReportResolver_list from './endpoints/admin/abuse-report-resolver/list.js';
 import * as ep___admin_avatarDecorations_create from './endpoints/admin/avatar-decorations/create.js';
 import * as ep___admin_avatarDecorations_delete from './endpoints/admin/avatar-decorations/delete.js';
 import * as ep___admin_avatarDecorations_list from './endpoints/admin/avatar-decorations/list.js';
 import * as ep___admin_avatarDecorations_update from './endpoints/admin/avatar-decorations/update.js';
-import * as ep___admin_deleteAllFilesOfAUser from './endpoints/admin/delete-all-files-of-a-user.js';
 import * as ep___admin_unsetUserAvatar from './endpoints/admin/unset-user-avatar.js';
 import * as ep___admin_unsetUserBanner from './endpoints/admin/unset-user-banner.js';
 import * as ep___admin_drive_cleanRemoteFiles from './endpoints/admin/drive/clean-remote-files.js';
 import * as ep___admin_drive_cleanup from './endpoints/admin/drive/cleanup.js';
+import * as ep___admin_drive_deleteAllFilesOfAUser from './endpoints/admin/drive/delete-all-files-of-a-user.js';
 import * as ep___admin_drive_files from './endpoints/admin/drive/files.js';
 import * as ep___admin_drive_showFile from './endpoints/admin/drive/show-file.js';
 import * as ep___admin_emoji_addAliasesBulk from './endpoints/admin/emoji/add-aliases-bulk.js';
@@ -47,6 +51,10 @@ import * as ep___admin_federation_deleteAllFiles from './endpoints/admin/federat
 import * as ep___admin_federation_refreshRemoteInstanceMetadata from './endpoints/admin/federation/refresh-remote-instance-metadata.js';
 import * as ep___admin_federation_removeAllFollowing from './endpoints/admin/federation/remove-all-following.js';
 import * as ep___admin_federation_updateInstance from './endpoints/admin/federation/update-instance.js';
+import * as ep___admin_indieAuth_create from './endpoints/admin/indie-auth/create.js';
+import * as ep___admin_indieAuth_delete from './endpoints/admin/indie-auth/delete.js';
+import * as ep___admin_indieAuth_list from './endpoints/admin/indie-auth/list.js';
+import * as ep___admin_indieAuth_update from './endpoints/admin/indie-auth/update.js';
 import * as ep___admin_getIndexStats from './endpoints/admin/get-index-stats.js';
 import * as ep___admin_getTableStats from './endpoints/admin/get-table-stats.js';
 import * as ep___admin_getUserIps from './endpoints/admin/get-user-ips.js';
@@ -71,7 +79,6 @@ import * as ep___admin_showUsers from './endpoints/admin/show-users.js';
 import * as ep___admin_suspendUser from './endpoints/admin/suspend-user.js';
 import * as ep___admin_unsuspendUser from './endpoints/admin/unsuspend-user.js';
 import * as ep___admin_updateMeta from './endpoints/admin/update-meta.js';
-import * as ep___admin_deleteAccount from './endpoints/admin/delete-account.js';
 import * as ep___admin_updateUserNote from './endpoints/admin/update-user-note.js';
 import * as ep___admin_roles_create from './endpoints/admin/roles/create.js';
 import * as ep___admin_roles_delete from './endpoints/admin/roles/delete.js';
@@ -82,6 +89,10 @@ import * as ep___admin_roles_assign from './endpoints/admin/roles/assign.js';
 import * as ep___admin_roles_unassign from './endpoints/admin/roles/unassign.js';
 import * as ep___admin_roles_updateDefaultPolicies from './endpoints/admin/roles/update-default-policies.js';
 import * as ep___admin_roles_users from './endpoints/admin/roles/users.js';
+import * as ep___admin_sso_create from './endpoints/admin/sso/create.js';
+import * as ep___admin_sso_delete from './endpoints/admin/sso/delete.js';
+import * as ep___admin_sso_list from './endpoints/admin/sso/list.js';
+import * as ep___admin_sso_update from './endpoints/admin/sso/update.js';
 import * as ep___announcements from './endpoints/announcements.js';
 import * as ep___antennas_create from './endpoints/antennas/create.js';
 import * as ep___antennas_delete from './endpoints/antennas/delete.js';
@@ -102,6 +113,7 @@ import * as ep___blocking_delete from './endpoints/blocking/delete.js';
 import * as ep___blocking_list from './endpoints/blocking/list.js';
 import * as ep___channels_create from './endpoints/channels/create.js';
 import * as ep___channels_featured from './endpoints/channels/featured.js';
+import * as ep___channels_featured_games from './endpoints/channels/featured-games.js';
 import * as ep___channels_follow from './endpoints/channels/follow.js';
 import * as ep___channels_followed from './endpoints/channels/followed.js';
 import * as ep___channels_owned from './endpoints/channels/owned.js';
@@ -208,6 +220,7 @@ import * as ep___i_exportBlocking from './endpoints/i/export-blocking.js';
 import * as ep___i_exportFollowing from './endpoints/i/export-following.js';
 import * as ep___i_exportMute from './endpoints/i/export-mute.js';
 import * as ep___i_exportNotes from './endpoints/i/export-notes.js';
+import * as ep___i_exportClips from './endpoints/i/export-clips.js';
 import * as ep___i_exportFavorites from './endpoints/i/export-favorites.js';
 import * as ep___i_exportUserLists from './endpoints/i/export-user-lists.js';
 import * as ep___i_exportAntennas from './endpoints/i/export-antennas.js';
@@ -292,6 +305,7 @@ import * as ep___notes_translate from './endpoints/notes/translate.js';
 import * as ep___notes_unrenote from './endpoints/notes/unrenote.js';
 import * as ep___notes_userListTimeline from './endpoints/notes/user-list-timeline.js';
 import * as ep___notifications_create from './endpoints/notifications/create.js';
+import * as ep___notifications_flush from './endpoints/notifications/flush.js';
 import * as ep___notifications_markAllAsRead from './endpoints/notifications/mark-all-as-read.js';
 import * as ep___notifications_testNotification from './endpoints/notifications/test-notification.js';
 import * as ep___pagePush from './endpoints/page-push.js';
@@ -358,11 +372,21 @@ import * as ep___users_reportAbuse from './endpoints/users/report-abuse.js';
 import * as ep___users_searchByUsernameAndHost from './endpoints/users/search-by-username-and-host.js';
 import * as ep___users_search from './endpoints/users/search.js';
 import * as ep___users_show from './endpoints/users/show.js';
+import * as ep___users_stats from './endpoints/users/stats.js';
 import * as ep___users_achievements from './endpoints/users/achievements.js';
 import * as ep___users_updateMemo from './endpoints/users/update-memo.js';
 import * as ep___fetchRss from './endpoints/fetch-rss.js';
 import * as ep___fetchExternalResources from './endpoints/fetch-external-resources.js';
 import * as ep___retention from './endpoints/retention.js';
+import * as ep___bubbleGame_register from './endpoints/bubble-game/register.js';
+import * as ep___bubbleGame_ranking from './endpoints/bubble-game/ranking.js';
+import * as ep___reversi_cancelMatch from './endpoints/reversi/cancel-match.js';
+import * as ep___reversi_games from './endpoints/reversi/games.js';
+import * as ep___reversi_match from './endpoints/reversi/match.js';
+import * as ep___reversi_invitations from './endpoints/reversi/invitations.js';
+import * as ep___reversi_showGame from './endpoints/reversi/show-game.js';
+import * as ep___reversi_surrender from './endpoints/reversi/surrender.js';
+import * as ep___reversi_verify from './endpoints/reversi/verify.js';
 
 const eps = [
 	['admin/meta', ep___admin_meta],
@@ -378,15 +402,19 @@ const eps = [
 	['admin/announcements/delete', ep___admin_announcements_delete],
 	['admin/announcements/list', ep___admin_announcements_list],
 	['admin/announcements/update', ep___admin_announcements_update],
+	['admin/abuse-report-resolver/create', ep___admin_abuseReportResolver_create],
+	['admin/abuse-report-resolver/list', ep___admin_abuseReportResolver_list],
+	['admin/abuse-report-resolver/delete', ep___admin_abuseReportResolver_delete],
+	['admin/abuse-report-resolver/update', ep___admin_abuseReportResolver_update],
 	['admin/avatar-decorations/create', ep___admin_avatarDecorations_create],
 	['admin/avatar-decorations/delete', ep___admin_avatarDecorations_delete],
 	['admin/avatar-decorations/list', ep___admin_avatarDecorations_list],
 	['admin/avatar-decorations/update', ep___admin_avatarDecorations_update],
-	['admin/delete-all-files-of-a-user', ep___admin_deleteAllFilesOfAUser],
 	['admin/unset-user-avatar', ep___admin_unsetUserAvatar],
 	['admin/unset-user-banner', ep___admin_unsetUserBanner],
 	['admin/drive/clean-remote-files', ep___admin_drive_cleanRemoteFiles],
 	['admin/drive/cleanup', ep___admin_drive_cleanup],
+	['admin/drive/delete-all-files-of-a-user', ep___admin_drive_deleteAllFilesOfAUser],
 	['admin/drive/files', ep___admin_drive_files],
 	['admin/drive/show-file', ep___admin_drive_showFile],
 	['admin/emoji/add-aliases-bulk', ep___admin_emoji_addAliasesBulk],
@@ -406,6 +434,10 @@ const eps = [
 	['admin/federation/refresh-remote-instance-metadata', ep___admin_federation_refreshRemoteInstanceMetadata],
 	['admin/federation/remove-all-following', ep___admin_federation_removeAllFollowing],
 	['admin/federation/update-instance', ep___admin_federation_updateInstance],
+	['admin/indie-auth/create', ep___admin_indieAuth_create],
+	['admin/indie-auth/delete', ep___admin_indieAuth_delete],
+	['admin/indie-auth/list', ep___admin_indieAuth_list],
+	['admin/indie-auth/update', ep___admin_indieAuth_update],
 	['admin/get-index-stats', ep___admin_getIndexStats],
 	['admin/get-table-stats', ep___admin_getTableStats],
 	['admin/get-user-ips', ep___admin_getUserIps],
@@ -430,7 +462,6 @@ const eps = [
 	['admin/suspend-user', ep___admin_suspendUser],
 	['admin/unsuspend-user', ep___admin_unsuspendUser],
 	['admin/update-meta', ep___admin_updateMeta],
-	['admin/delete-account', ep___admin_deleteAccount],
 	['admin/update-user-note', ep___admin_updateUserNote],
 	['admin/roles/create', ep___admin_roles_create],
 	['admin/roles/delete', ep___admin_roles_delete],
@@ -441,6 +472,10 @@ const eps = [
 	['admin/roles/unassign', ep___admin_roles_unassign],
 	['admin/roles/update-default-policies', ep___admin_roles_updateDefaultPolicies],
 	['admin/roles/users', ep___admin_roles_users],
+	['admin/sso/create', ep___admin_sso_create],
+	['admin/sso/delete', ep___admin_sso_delete],
+	['admin/sso/list', ep___admin_sso_list],
+	['admin/sso/update', ep___admin_sso_update],
 	['announcements', ep___announcements],
 	['antennas/create', ep___antennas_create],
 	['antennas/delete', ep___antennas_delete],
@@ -461,6 +496,7 @@ const eps = [
 	['blocking/list', ep___blocking_list],
 	['channels/create', ep___channels_create],
 	['channels/featured', ep___channels_featured],
+	['channels/featured-games', ep___channels_featured_games],
 	['channels/follow', ep___channels_follow],
 	['channels/followed', ep___channels_followed],
 	['channels/owned', ep___channels_owned],
@@ -567,6 +603,7 @@ const eps = [
 	['i/export-following', ep___i_exportFollowing],
 	['i/export-mute', ep___i_exportMute],
 	['i/export-notes', ep___i_exportNotes],
+	['i/export-clips', ep___i_exportClips],
 	['i/export-favorites', ep___i_exportFavorites],
 	['i/export-user-lists', ep___i_exportUserLists],
 	['i/export-antennas', ep___i_exportAntennas],
@@ -651,6 +688,7 @@ const eps = [
 	['notes/unrenote', ep___notes_unrenote],
 	['notes/user-list-timeline', ep___notes_userListTimeline],
 	['notifications/create', ep___notifications_create],
+	['notifications/flush', ep___notifications_flush],
 	['notifications/mark-all-as-read', ep___notifications_markAllAsRead],
 	['notifications/test-notification', ep___notifications_testNotification],
 	['page-push', ep___pagePush],
@@ -717,14 +755,24 @@ const eps = [
 	['users/search-by-username-and-host', ep___users_searchByUsernameAndHost],
 	['users/search', ep___users_search],
 	['users/show', ep___users_show],
+	['users/stats', ep___users_stats],
 	['users/achievements', ep___users_achievements],
 	['users/update-memo', ep___users_updateMemo],
 	['fetch-rss', ep___fetchRss],
 	['fetch-external-resources', ep___fetchExternalResources],
 	['retention', ep___retention],
+	['bubble-game/register', ep___bubbleGame_register],
+	['bubble-game/ranking', ep___bubbleGame_ranking],
+	['reversi/cancel-match', ep___reversi_cancelMatch],
+	['reversi/games', ep___reversi_games],
+	['reversi/match', ep___reversi_match],
+	['reversi/invitations', ep___reversi_invitations],
+	['reversi/show-game', ep___reversi_showGame],
+	['reversi/surrender', ep___reversi_surrender],
+	['reversi/verify', ep___reversi_verify],
 ];
 
-export interface IEndpointMeta {
+interface IEndpointMetaBase {
 	readonly stability?: 'deprecated' | 'experimental' | 'stable';
 
 	readonly tags?: ReadonlyArray<string>;
@@ -755,7 +803,7 @@ export interface IEndpointMeta {
 	 */
 	readonly requireAdmin?: boolean;
 
-	readonly requireRolePolicy?: keyof RolePolicies;
+	readonly requireRolePolicy?: KeyOf<'RolePolicies'>;
 
 	/**
 	 * 引っ越し済みのユーザーによるリクエストを禁止するか
@@ -822,6 +870,23 @@ export interface IEndpointMeta {
 	 */
 	readonly cacheSec?: number;
 }
+
+export type IEndpointMeta = (Omit<IEndpointMetaBase, 'requireCrential' | 'requireModerator' | 'requireAdmin'> & {
+	requireCredential?: false,
+	requireAdmin?: false,
+	requireModerator?: false,
+}) | (Omit<IEndpointMetaBase, 'secure'> & {
+	secure: true,
+}) | (Omit<IEndpointMetaBase, 'requireCredential' | 'kind'> & {
+	requireCredential: true,
+	kind: (typeof permissions)[number],
+}) | (Omit<IEndpointMetaBase, 'requireModerator' | 'kind'> & {
+	requireModerator: true,
+	kind: (typeof permissions)[number],
+}) | (Omit<IEndpointMetaBase, 'requireAdmin' | 'kind'> & {
+	requireAdmin: true,
+	kind: (typeof permissions)[number],
+})
 
 export interface IEndpoint {
 	name: string;

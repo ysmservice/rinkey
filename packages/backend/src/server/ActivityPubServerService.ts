@@ -1,5 +1,5 @@
 /*
- * SPDX-FileCopyrightText: syuilo and other misskey contributors
+ * SPDX-FileCopyrightText: syuilo and misskey-project
  * SPDX-License-Identifier: AGPL-3.0-only
  */
 
@@ -100,7 +100,8 @@ export class ActivityPubServerService {
 	}
 
 	@bindThis
-	private inbox(request: FastifyRequest, reply: FastifyReply) {
+	private async inbox(request: FastifyRequest, reply: FastifyReply) {
+		const userId = (request.params as { user: string; } | undefined)?.user;
 		let signature;
 
 		try {
@@ -138,7 +139,7 @@ export class ActivityPubServerService {
 				return;
 			}
 
-			const algo = match[1];
+			const algo = match[1].toUpperCase();
 			const digestValue = match[2];
 
 			if (algo !== 'SHA-256') {
@@ -162,8 +163,23 @@ export class ActivityPubServerService {
 			}
 		}
 
-		this.queueService.inbox(request.body as IActivity, signature);
+		const user = userId ? await this.usersRepository.findOneBy({
+			id: userId,
+			host: IsNull(),
+		}) : null;
 
+		if (userId && user == null) {
+			reply.code(404);
+			return;
+		}
+
+		const activity = request.body as IActivity;
+		if (!activity.type || !signature.keyId) {
+			reply.code(400);
+			return;
+		}
+
+		await this.queueService.inbox(user, activity, signature);
 		reply.code(202);
 	}
 
@@ -195,11 +211,11 @@ export class ActivityPubServerService {
 		//#region Check ff visibility
 		const profile = await this.userProfilesRepository.findOneByOrFail({ userId: user.id });
 
-		if (profile.ffVisibility === 'private') {
+		if (profile.followersVisibility === 'private') {
 			reply.code(403);
 			reply.header('Cache-Control', 'public, max-age=30');
 			return;
-		} else if (profile.ffVisibility === 'followers') {
+		} else if (profile.followersVisibility === 'followers') {
 			reply.code(403);
 			reply.header('Cache-Control', 'public, max-age=30');
 			return;
@@ -240,7 +256,7 @@ export class ActivityPubServerService {
 				undefined,
 				inStock ? `${partOf}?${url.query({
 					page: 'true',
-					cursor: followings.at(-1)!.id,
+					cursor: followings[followings.length - 1].id,
 				})}` : undefined,
 			);
 
@@ -287,11 +303,11 @@ export class ActivityPubServerService {
 		//#region Check ff visibility
 		const profile = await this.userProfilesRepository.findOneByOrFail({ userId: user.id });
 
-		if (profile.ffVisibility === 'private') {
+		if (profile.followingVisibility === 'private') {
 			reply.code(403);
 			reply.header('Cache-Control', 'public, max-age=30');
 			return;
-		} else if (profile.ffVisibility === 'followers') {
+		} else if (profile.followingVisibility === 'followers') {
 			reply.code(403);
 			reply.header('Cache-Control', 'public, max-age=30');
 			return;
@@ -332,7 +348,7 @@ export class ActivityPubServerService {
 				undefined,
 				inStock ? `${partOf}?${url.query({
 					page: 'true',
-					cursor: followings.at(-1)!.id,
+					cursor: followings[followings.length - 1].id,
 				})}` : undefined,
 			);
 
@@ -370,8 +386,9 @@ export class ActivityPubServerService {
 			order: { id: 'DESC' },
 		});
 
-		const pinnedNotes = await Promise.all(pinings.map(pining =>
-			this.notesRepository.findOneByOrFail({ id: pining.noteId })));
+		const pinnedNotes = (await Promise.all(pinings.map(pining =>
+			this.notesRepository.findOneByOrFail({ id: pining.noteId }))))
+			.filter(note => !note.localOnly && ['public', 'home'].includes(note.visibility));
 
 		const renderedNotes = await Promise.all(pinnedNotes.map(note => this.apRendererService.renderNote(note)));
 
@@ -458,7 +475,7 @@ export class ActivityPubServerService {
 				})}` : undefined,
 				notes.length ? `${partOf}?${url.query({
 					page: 'true',
-					until_id: notes.at(-1)!.id,
+					until_id: notes[notes.length - 1].id,
 				})}` : undefined,
 			);
 
@@ -492,8 +509,7 @@ export class ActivityPubServerService {
 
 	@bindThis
 	public createServer(fastify: FastifyInstance, options: FastifyPluginOptions, done: (err?: Error) => void) {
-		// addConstraintStrategy の型定義がおかしいため
-		(fastify.addConstraintStrategy as any)({
+		fastify.addConstraintStrategy({
 			name: 'apOrHtml',
 			storage() {
 				const store = {} as any;
@@ -547,7 +563,7 @@ export class ActivityPubServerService {
 		//#region Routing
 		// inbox (limit: 64kb)
 		fastify.post('/inbox', { config: { rawBody: true }, bodyLimit: 1024 * 64 }, async (request, reply) => await this.inbox(request, reply));
-		fastify.post('/users/:user/inbox', { config: { rawBody: true }, bodyLimit: 1024 * 64 }, async (request, reply) => await this.inbox(request, reply));
+		fastify.post<{ Params: { user: string; }; }>('/users/:user/inbox', { config: { rawBody: true }, bodyLimit: 1024 * 64 }, async (request, reply) => await this.inbox(request, reply));
 
 		// note
 		fastify.get<{ Params: { note: string; } }>('/notes/:note', { constraints: { apOrHtml: 'ap' } }, async (request, reply) => {
@@ -648,6 +664,8 @@ export class ActivityPubServerService {
 		});
 
 		fastify.get<{ Params: { user: string; } }>('/users/:user', { constraints: { apOrHtml: 'ap' } }, async (request, reply) => {
+			vary(reply.raw, 'Accept');
+
 			const userId = request.params.user;
 
 			const user = await this.usersRepository.findOneBy({
@@ -660,6 +678,8 @@ export class ActivityPubServerService {
 		});
 
 		fastify.get<{ Params: { user: string; } }>('/@:user', { constraints: { apOrHtml: 'ap' } }, async (request, reply) => {
+			vary(reply.raw, 'Accept');
+
 			const user = await this.usersRepository.findOneBy({
 				usernameLower: request.params.user.toLowerCase(),
 				host: IsNull(),

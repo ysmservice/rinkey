@@ -1,5 +1,5 @@
 /*
- * SPDX-FileCopyrightText: syuilo and other misskey contributors
+ * SPDX-FileCopyrightText: syuilo and misskey-project
  * SPDX-License-Identifier: AGPL-3.0-only
  */
 
@@ -74,7 +74,7 @@ export class RemoteUserResolveService {
 		if (user == null) {
 			const self = await this.resolveSelf(acctLower);
 
-			if (self.href.startsWith(this.config.url)) {
+			if (new URL(self.href).origin === this.config.url) {
 				const local = this.apDbResolverService.parseUri(self.href);
 				if (local.local && local.type === 'users') {
 					// the LR points to local
@@ -145,7 +145,7 @@ export class RemoteUserResolveService {
 	private async resolveSelf(acctLower: string): Promise<ILink> {
 		this.logger.info(`WebFinger for ${chalk.yellow(acctLower)}`);
 		const finger = await this.webfingerService.webfinger(acctLower).catch(err => {
-			this.logger.error(`Failed to WebFinger for ${chalk.yellow(acctLower)}: ${ err.statusCode ?? err.message }`);
+			this.logger.error(`Failed to WebFinger for ${chalk.yellow(acctLower)}: ${ err.statusCode ?? err.message }`, { error: err });
 			throw new Error(`Failed to WebFinger for ${acctLower}: ${ err.statusCode ?? err.message }`);
 		});
 		const self = finger.links.find(link => link.rel != null && link.rel.toLowerCase() === 'self');

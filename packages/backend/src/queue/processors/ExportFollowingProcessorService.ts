@@ -1,5 +1,5 @@
 /*
- * SPDX-FileCopyrightText: syuilo and other misskey contributors
+ * SPDX-FileCopyrightText: syuilo and misskey-project
  * SPDX-License-Identifier: AGPL-3.0-only
  */
 
@@ -80,7 +80,7 @@ export class ExportFollowingProcessorService {
 					break;
 				}
 
-				cursor = followings.at(-1)?.id ?? null;
+				cursor = followings[followings.length - 1].id;
 
 				for (const following of followings) {
 					const u = await this.usersRepository.findOneBy({ id: following.followeeId });

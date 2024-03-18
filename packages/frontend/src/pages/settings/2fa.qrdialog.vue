@@ -1,5 +1,5 @@
 <!--
-SPDX-FileCopyrightText: syuilo and other misskey contributors
+SPDX-FileCopyrightText: syuilo and misskey-project
 SPDX-License-Identifier: AGPL-3.0-only
 -->
 
@@ -27,10 +27,10 @@ SPDX-License-Identifier: AGPL-3.0-only
 						<div class="_gaps">
 							<I18n :src="i18n.ts._2fa.step1" tag="div">
 								<template #a>
-									<a href="https://authy.com/" rel="noopener" target="_blank" class="_link">Authy</a>
+									<a href="https://authy.com/" rel="nofollow noopener" target="_blank" class="_link">Authy</a>
 								</template>
 								<template #b>
-									<a href="https://support.google.com/accounts/answer/1066447" rel="noopener" target="_blank" class="_link">Google Authenticator</a>
+									<a href="https://support.google.com/accounts/answer/1066447" rel="nofollow noopener" target="_blank" class="_link">Google Authenticator</a>
 								</template>
 							</I18n>
 							<div>{{ i18n.ts._2fa.step2 }}<br>{{ i18n.ts._2fa.step2Click }}</div>
@@ -110,7 +110,9 @@ import * as os from '@/os.js';
 import MkFolder from '@/components/MkFolder.vue';
 import MkInfo from '@/components/MkInfo.vue';
 import { confetti } from '@/scripts/confetti.js';
-import { $i } from '@/account.js';
+import { signinRequired } from '@/account.js';
+
+const $i = signinRequired();
 
 defineProps<{
 	twoFactorData: {
@@ -151,7 +153,7 @@ function downloadBackupCodes() {
 		const txtBlob = new Blob([backupCodes.value.join('\n')], { type: 'text/plain' });
 		const dummya = document.createElement('a');
 		dummya.href = URL.createObjectURL(txtBlob);
-		dummya.download = `${$i?.username}-2fa-backup-codes.txt`;
+		dummya.download = `${$i.username}-2fa-backup-codes.txt`;
 		dummya.click();
 	}
 }

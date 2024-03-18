@@ -1,5 +1,5 @@
 /*
- * SPDX-FileCopyrightText: syuilo and other misskey contributors
+ * SPDX-FileCopyrightText: syuilo and misskey-project
  * SPDX-License-Identifier: AGPL-3.0-only
  */
 
@@ -10,6 +10,13 @@ import { id } from './util/id.js';
 export class MiAvatarDecoration {
 	@PrimaryColumn(id())
 	public id: string;
+
+	@Index()
+	@Column('timestamp with time zone', {
+		comment: 'The created date of the AvatarDecoration.',
+		default: () => 'CURRENT_TIMESTAMP',
+	})
+	public createdAt: Date;
 
 	@Column('timestamp with time zone', {
 		nullable: true,

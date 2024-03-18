@@ -1,5 +1,5 @@
 /*
- * SPDX-FileCopyrightText: syuilo and other misskey contributors
+ * SPDX-FileCopyrightText: syuilo and misskey-project
  * SPDX-License-Identifier: AGPL-3.0-only
  */
 
@@ -18,9 +18,10 @@ import { UserAuthService } from '@/core/UserAuthService.js';
 import { ApiError } from '../../error.js';
 
 export const meta = {
-	requireCredential: true,
-
 	secure: true,
+
+	requireCredential: true,
+	requireRolePolicy: 'canUpdateContent',
 
 	limit: {
 		duration: ms('1hour'),
@@ -34,11 +35,22 @@ export const meta = {
 			id: 'e54c1d7e-e7d6-4103-86b6-0a95069b4ad3',
 		},
 
+		authenticationFailed: {
+			message: 'Authentication failed.',
+			code: 'AUTHENTICATION_FAILED',
+			id: 'ef9323ea-8451-4f7a-8f35-4b1ee014d9b7',
+		},
+
 		unavailable: {
 			message: 'Unavailable email address.',
 			code: 'UNAVAILABLE',
 			id: 'a2defefb-f220-8849-0af6-17f816099323',
 		},
+	},
+
+	res: {
+		type: 'object',
+		ref: 'MeDetailed',
 	},
 } as const;
 
@@ -67,24 +79,20 @@ export default class extends Endpoint<typeof meta, typeof paramDef> { // eslint-
 		private globalEventService: GlobalEventService,
 	) {
 		super(meta, paramDef, async (ps, me) => {
-			const token = ps.token;
 			const profile = await this.userProfilesRepository.findOneByOrFail({ userId: me.id });
-
-			if (profile.twoFactorEnabled) {
-				if (token == null) {
-					throw new Error('authentication failed');
-				}
-
-				try {
-					await this.userAuthService.twoFactorAuthenticate(profile, token);
-				} catch (e) {
-					throw new Error('authentication failed');
-				}
-			}
 
 			const passwordMatched = await bcrypt.compare(ps.password, profile.password!);
 			if (!passwordMatched) {
 				throw new ApiError(meta.errors.incorrectPassword);
+			}
+
+			if (profile.twoFactorEnabled) {
+				const token = ps.token;
+				if (token == null) {
+					throw new ApiError(meta.errors.authenticationFailed);
+				}
+
+				await this.userAuthService.twoFactorAuthenticate(profile, token);
 			}
 
 			if (ps.email != null) {
@@ -101,7 +109,7 @@ export default class extends Endpoint<typeof meta, typeof paramDef> { // eslint-
 			});
 
 			const iObj = await this.userEntityService.pack(me.id, me, {
-				detail: true,
+				schema: 'MeDetailed',
 				includeSecrets: true,
 			});
 

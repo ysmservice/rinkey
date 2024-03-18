@@ -1,5 +1,5 @@
 /*
- * SPDX-FileCopyrightText: syuilo and other misskey contributors
+ * SPDX-FileCopyrightText: syuilo and misskey-project
  * SPDX-License-Identifier: AGPL-3.0-only
  */
 
@@ -76,9 +76,24 @@ export class MiEmoji {
 	})
 	public isSensitive: boolean;
 
+	@Column('varchar', {
+		length: 1024, nullable: true,
+	})
+	public requestedBy: string | null;
+
+	@Column('varchar', {
+		length: 8192, default: '',
+	})
+	public memo: string | null;
+
 	// TODO: 定期ジョブで存在しなくなったロールIDを除去するようにする
 	@Column('varchar', {
 		array: true, length: 128, default: '{}',
 	})
 	public roleIdsThatCanBeUsedThisEmojiAsReaction: string[];
+
+	@Column('varchar', {
+		array: true, length: 128, default: '{}',
+	})
+	public roleIdsThatCanNotBeUsedThisEmojiAsReaction: string[];
 }

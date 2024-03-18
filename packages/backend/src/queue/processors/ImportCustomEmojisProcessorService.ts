@@ -1,5 +1,5 @@
 /*
- * SPDX-FileCopyrightText: syuilo and other misskey contributors
+ * SPDX-FileCopyrightText: syuilo and misskey-project
  * SPDX-License-Identifier: AGPL-3.0-only
  */
 
@@ -102,7 +102,10 @@ export class ImportCustomEmojisProcessorService {
 					license: emojiInfo.license,
 					isSensitive: emojiInfo.isSensitive,
 					localOnly: emojiInfo.localOnly,
+					requestedBy: emojiInfo.requestedBy,
+					memo: emojiInfo.memo,
 					roleIdsThatCanBeUsedThisEmojiAsReaction: [],
+					roleIdsThatCanNotBeUsedThisEmojiAsReaction: [],
 				});
 			}
 

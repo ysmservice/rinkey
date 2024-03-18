@@ -1,5 +1,5 @@
 /*
- * SPDX-FileCopyrightText: syuilo and other misskey contributors
+ * SPDX-FileCopyrightText: syuilo and misskey-project
  * SPDX-License-Identifier: AGPL-3.0-only
  */
 
@@ -25,18 +25,18 @@ export class AppEntityService {
 	@bindThis
 	public async pack(
 		src: MiApp['id'] | MiApp,
-		me?: { id: MiUser['id'] } | null | undefined,
+		me: { id: MiUser['id'] } | null | undefined,
 		options?: {
 			detail?: boolean,
 			includeSecret?: boolean,
 			includeProfileImageIds?: boolean
 		},
 	): Promise<Packed<'App'>> {
-		const opts = Object.assign({
+		const opts = {
 			detail: false,
 			includeSecret: false,
-			includeProfileImageIds: false,
-		}, options);
+			includeProfileImageIds: false, ...options
+		};
 
 		const app = typeof src === 'object' ? src : await this.appsRepository.findOneByOrFail({ id: src });
 

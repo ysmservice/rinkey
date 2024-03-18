@@ -1,5 +1,5 @@
 <!--
-SPDX-FileCopyrightText: syuilo and other misskey contributors
+SPDX-FileCopyrightText: syuilo and misskey-project
 SPDX-License-Identifier: AGPL-3.0-only
 -->
 
@@ -43,6 +43,11 @@ SPDX-License-Identifier: AGPL-3.0-only
 					<MkTextarea v-model="pinnedUsers">
 						<template #label>{{ i18n.ts.pinnedUsers }}</template>
 						<template #caption>{{ i18n.ts.pinnedUsersDescription }}</template>
+					</MkTextarea>
+
+					<MkTextarea v-model="featuredGameChannels">
+						<template #label>{{ i18n.ts.featuredGameChannels }}</template>
+						<template #caption>{{ i18n.ts.featuredGameChannelsDescription }}</template>
 					</MkTextarea>
 
 					<FormSection>
@@ -130,7 +135,7 @@ SPDX-License-Identifier: AGPL-3.0-only
 </template>
 
 <script lang="ts" setup>
-import { } from 'vue';
+import { ref, computed } from 'vue';
 import XHeader from './_header_.vue';
 import MkSwitch from '@/components/MkSwitch.vue';
 import MkInput from '@/components/MkInput.vue';
@@ -140,80 +145,84 @@ import FormSection from '@/components/form/section.vue';
 import FormSplit from '@/components/form/split.vue';
 import FormSuspense from '@/components/form/suspense.vue';
 import * as os from '@/os.js';
+import { misskeyApi } from '@/scripts/misskey-api.js';
 import { fetchInstance } from '@/instance.js';
 import { i18n } from '@/i18n.js';
 import { definePageMetadata } from '@/scripts/page-metadata.js';
 import MkButton from '@/components/MkButton.vue';
 
-let name: string | null = $ref(null);
-let shortName: string | null = $ref(null);
-let description: string | null = $ref(null);
-let maintainerName: string | null = $ref(null);
-let maintainerEmail: string | null = $ref(null);
-let impressumUrl: string | null = $ref(null);
-let pinnedUsers: string = $ref('');
-let enableServiceWorker: boolean = $ref(false);
-let swPublicKey: any = $ref(null);
-let swPrivateKey: any = $ref(null);
-let enableFanoutTimeline: boolean = $ref(false);
-let enableFanoutTimelineDbFallback: boolean = $ref(false);
-let perLocalUserUserTimelineCacheMax: number = $ref(0);
-let perRemoteUserUserTimelineCacheMax: number = $ref(0);
-let perUserHomeTimelineCacheMax: number = $ref(0);
-let perUserListTimelineCacheMax: number = $ref(0);
-let notesPerOneAd: number = $ref(0);
+const name = ref<string | null>(null);
+const shortName = ref<string | null>(null);
+const description = ref<string | null>(null);
+const maintainerName = ref<string | null>(null);
+const maintainerEmail = ref<string | null>(null);
+const impressumUrl = ref<string | null>(null);
+const pinnedUsers = ref<string>('');
+const featuredGameChannels = ref<string>('');
+const enableServiceWorker = ref<boolean>(false);
+const swPublicKey = ref<string | null>(null);
+const swPrivateKey = ref<string | null>(null);
+const enableFanoutTimeline = ref<boolean>(false);
+const enableFanoutTimelineDbFallback = ref<boolean>(false);
+const perLocalUserUserTimelineCacheMax = ref<number>(0);
+const perRemoteUserUserTimelineCacheMax = ref<number>(0);
+const perUserHomeTimelineCacheMax = ref<number>(0);
+const perUserListTimelineCacheMax = ref<number>(0);
+const notesPerOneAd = ref<number>(0);
 
 async function init(): Promise<void> {
-	const meta = await os.api('admin/meta');
-	name = meta.name;
-	shortName = meta.shortName;
-	description = meta.description;
-	maintainerName = meta.maintainerName;
-	maintainerEmail = meta.maintainerEmail;
-	impressumUrl = meta.impressumUrl;
-	pinnedUsers = meta.pinnedUsers.join('\n');
-	enableServiceWorker = meta.enableServiceWorker;
-	swPublicKey = meta.swPublickey;
-	swPrivateKey = meta.swPrivateKey;
-	enableFanoutTimeline = meta.enableFanoutTimeline;
-	enableFanoutTimelineDbFallback = meta.enableFanoutTimelineDbFallback;
-	perLocalUserUserTimelineCacheMax = meta.perLocalUserUserTimelineCacheMax;
-	perRemoteUserUserTimelineCacheMax = meta.perRemoteUserUserTimelineCacheMax;
-	perUserHomeTimelineCacheMax = meta.perUserHomeTimelineCacheMax;
-	perUserListTimelineCacheMax = meta.perUserListTimelineCacheMax;
-	notesPerOneAd = meta.notesPerOneAd;
+	const meta = await misskeyApi('admin/meta');
+	name.value = meta.name;
+	shortName.value = meta.shortName;
+	description.value = meta.description;
+	maintainerName.value = meta.maintainerName;
+	maintainerEmail.value = meta.maintainerEmail;
+	impressumUrl.value = meta.impressumUrl;
+	pinnedUsers.value = meta.pinnedUsers.join('\n');
+	featuredGameChannels.value = meta.featuredGameChannels.join('\n');
+	enableServiceWorker.value = meta.enableServiceWorker;
+	swPublicKey.value = meta.swPublickey;
+	swPrivateKey.value = meta.swPrivateKey;
+	enableFanoutTimeline.value = meta.enableFanoutTimeline;
+	enableFanoutTimelineDbFallback.value = meta.enableFanoutTimelineDbFallback;
+	perLocalUserUserTimelineCacheMax.value = meta.perLocalUserUserTimelineCacheMax;
+	perRemoteUserUserTimelineCacheMax.value = meta.perRemoteUserUserTimelineCacheMax;
+	perUserHomeTimelineCacheMax.value = meta.perUserHomeTimelineCacheMax;
+	perUserListTimelineCacheMax.value = meta.perUserListTimelineCacheMax;
+	notesPerOneAd.value = meta.notesPerOneAd;
 }
 
 async function save(): void {
 	await os.apiWithDialog('admin/update-meta', {
-		name,
-		shortName: shortName === '' ? null : shortName,
-		description,
-		maintainerName,
-		maintainerEmail,
-		impressumUrl,
-		pinnedUsers: pinnedUsers.split('\n'),
-		enableServiceWorker,
-		swPublicKey,
-		swPrivateKey,
-		enableFanoutTimeline,
-		enableFanoutTimelineDbFallback,
-		perLocalUserUserTimelineCacheMax,
-		perRemoteUserUserTimelineCacheMax,
-		perUserHomeTimelineCacheMax,
-		perUserListTimelineCacheMax,
-		notesPerOneAd,
+		name: name.value,
+		shortName: shortName.value === '' ? null : shortName.value,
+		description: description.value,
+		maintainerName: maintainerName.value,
+		maintainerEmail: maintainerEmail.value,
+		impressumUrl: impressumUrl.value,
+		pinnedUsers: pinnedUsers.value.split('\n'),
+		featuredGameChannels: featuredGameChannels.value.split('\n'),
+		enableServiceWorker: enableServiceWorker.value,
+		swPublicKey: swPublicKey.value,
+		swPrivateKey: swPrivateKey.value,
+		enableFanoutTimeline: enableFanoutTimeline.value,
+		enableFanoutTimelineDbFallback: enableFanoutTimelineDbFallback.value,
+		perLocalUserUserTimelineCacheMax: perLocalUserUserTimelineCacheMax.value,
+		perRemoteUserUserTimelineCacheMax: perRemoteUserUserTimelineCacheMax.value,
+		perUserHomeTimelineCacheMax: perUserHomeTimelineCacheMax.value,
+		perUserListTimelineCacheMax: perUserListTimelineCacheMax.value,
+		notesPerOneAd: notesPerOneAd.value,
 	});
 
-	fetchInstance();
+	fetchInstance(true);
 }
 
-const headerTabs = $computed(() => []);
+const headerTabs = computed(() => []);
 
-definePageMetadata({
+definePageMetadata(() => ({
 	title: i18n.ts.general,
 	icon: 'ti ti-settings',
-});
+}));
 </script>
 
 <style lang="scss" module>

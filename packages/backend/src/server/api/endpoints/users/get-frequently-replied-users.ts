@@ -1,5 +1,5 @@
 /*
- * SPDX-FileCopyrightText: syuilo and other misskey contributors
+ * SPDX-FileCopyrightText: syuilo and misskey-project
  * SPDX-License-Identifier: AGPL-3.0-only
  */
 
@@ -11,6 +11,8 @@ import { Endpoint } from '@/server/api/endpoint-base.js';
 import { UserEntityService } from '@/core/entities/UserEntityService.js';
 import { DI } from '@/di-symbols.js';
 import { GetterService } from '@/server/api/GetterService.js';
+import { CacheService } from '@/core/CacheService.js';
+import { isUserRelated } from '@/misc/is-user-related.js';
 import { ApiError } from '../../error.js';
 
 export const meta = {
@@ -66,6 +68,7 @@ export default class extends Endpoint<typeof meta, typeof paramDef> { // eslint-
 
 		private userEntityService: UserEntityService,
 		private getterService: GetterService,
+		private cacheService: CacheService,
 	) {
 		super(meta, paramDef, async (ps, me) => {
 			// Lookup user
@@ -92,13 +95,20 @@ export default class extends Endpoint<typeof meta, typeof paramDef> { // eslint-
 				return [];
 			}
 
-			// TODO ミュートを考慮
-			const replyTargetNotes = await this.notesRepository.find({
+			const [
+				userIdsWhoMeMuting,
+				userIdsWhoBlockingMe,
+			] = me ? await Promise.all([
+				this.cacheService.userMutingsCache.fetch(me.id),
+				this.cacheService.userBlockedCache.fetch(me.id),
+			]) : [new Set<string>(), new Set<string>()];
+
+			const replyTargetNotes = (await this.notesRepository.find({
 				where: {
 					id: In(recentNotes.map(p => p.replyId)),
 				},
 				select: ['userId'],
-			});
+			})).filter(note => !(me && (isUserRelated(note, userIdsWhoBlockingMe) || isUserRelated(note, userIdsWhoMeMuting))));
 
 			const repliedUsers: any = {};
 
@@ -122,7 +132,7 @@ export default class extends Endpoint<typeof meta, typeof paramDef> { // eslint-
 
 			// Make replies object (includes weights)
 			const repliesObj = await Promise.all(topRepliedUsers.map(async (user) => ({
-				user: await this.userEntityService.pack(user, me, { detail: true }),
+				user: await this.userEntityService.pack(user, me, { schema: 'UserDetailed' }),
 				weight: repliedUsers[user] / peak,
 			})));
 

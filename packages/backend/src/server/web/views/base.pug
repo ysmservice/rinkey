@@ -36,7 +36,7 @@ html
 		link(rel='prefetch' href=infoImageUrl)
 		link(rel='prefetch' href=notFoundImageUrl)
 		//- https://github.com/misskey-dev/misskey/issues/9842
-		link(rel='stylesheet' href='/assets/tabler-icons/tabler-icons.min.css?v2.37.0')
+		link(rel='stylesheet' href=`/assets/tabler-icons.${version}/tabler-icons.min.css`)
 		link(rel='modulepreload' href=`/vite/${clientEntry.file}`)
 
 		if !config.clientManifestExists
@@ -61,15 +61,13 @@ html
 			meta(property='og:image'       content= img)
 			meta(property='twitter:card'   content='summary')
 
+		script(type='application/json' id='misskey_meta' data-generated-at=now)
+			!= metaJson
+
 		style
 			include ../style.css
 
-		script.
-			var VERSION = "#{version}";
-			var CLIENT_ENTRY = "#{clientEntry.file}";
-
-		script
-			include ../boot.js
+		script(src=`/assets/boot.${version}.js`)
 
 	body
 		noscript: p

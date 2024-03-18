@@ -1,5 +1,5 @@
 <!--
-SPDX-FileCopyrightText: syuilo and other misskey contributors
+SPDX-FileCopyrightText: syuilo and misskey-project
 SPDX-License-Identifier: AGPL-3.0-only
 -->
 
@@ -14,7 +14,7 @@ SPDX-License-Identifier: AGPL-3.0-only
 </template>
 
 <script lang="ts" setup>
-import { onUnmounted } from 'vue';
+import { onUnmounted, ref } from 'vue';
 import { useStream } from '@/stream.js';
 import { i18n } from '@/i18n.js';
 import MkButton from '@/components/MkButton.vue';
@@ -23,23 +23,31 @@ import { defaultStore } from '@/store.js';
 
 const zIndex = os.claimZIndex('high');
 
-let hasDisconnected = $ref(false);
+const hasDisconnected = ref(false);
+const timeoutId = ref<number>();
 
 function onDisconnected() {
-	hasDisconnected = true;
+	window.clearTimeout(timeoutId.value);
+	timeoutId.value = window.setTimeout(() => {
+		hasDisconnected.value = true;
+	}, 1000 * 10);
 }
 
 function resetDisconnected() {
-	hasDisconnected = false;
+	window.clearTimeout(timeoutId.value);
+	hasDisconnected.value = false;
 }
 
 function reload() {
 	location.reload();
 }
 
+useStream().on('_connected_', resetDisconnected);
 useStream().on('_disconnected_', onDisconnected);
 
 onUnmounted(() => {
+	window.clearTimeout(timeoutId.value);
+	useStream().off('_connected_', resetDisconnected);
 	useStream().off('_disconnected_', onDisconnected);
 });
 </script>

@@ -1,5 +1,5 @@
 /*
- * SPDX-FileCopyrightText: syuilo and other misskey contributors
+ * SPDX-FileCopyrightText: syuilo and misskey-project
  * SPDX-License-Identifier: AGPL-3.0-only
  */
 
@@ -14,8 +14,15 @@ import { DI } from '@/di-symbols.js';
 import type { Config } from '@/config.js';
 import { StatusError } from '@/misc/status-error.js';
 import { bindThis } from '@/decorators.js';
+import { validateContentTypeSetAsActivityPub } from '@/core/activitypub/misc/validator.js';
+import type { IObject } from '@/core/activitypub/type.js';
 import type { Response } from 'node-fetch';
 import type { URL } from 'node:url';
+
+export type HttpRequestSendOptions = {
+	throwErrorWhenResponseNotOk: boolean;
+	validators?: ((res: Response) => void)[];
+};
 
 @Injectable()
 export class HttpRequestService {
@@ -105,6 +112,23 @@ export class HttpRequestService {
 	}
 
 	@bindThis
+	public async getActivityJson(url: string): Promise<IObject> {
+		const res = await this.send(url, {
+			method: 'GET',
+			headers: {
+				Accept: 'application/activity+json, application/ld+json; profile="https://www.w3.org/ns/activitystreams"',
+			},
+			timeout: 5000,
+			size: 1024 * 256,
+		}, {
+			throwErrorWhenResponseNotOk: true,
+			validators: [validateContentTypeSetAsActivityPub],
+		});
+
+		return await res.json() as IObject;
+	}
+
+	@bindThis
 	public async getJson<T = unknown>(url: string, accept = 'application/json, */*', headers?: Record<string, string>): Promise<T> {
 		const res = await this.send(url, {
 			method: 'GET',
@@ -132,17 +156,20 @@ export class HttpRequestService {
 	}
 
 	@bindThis
-	public async send(url: string, args: {
-		method?: string,
-		body?: string,
-		headers?: Record<string, string>,
-		timeout?: number,
-		size?: number,
-	} = {}, extra: {
-		throwErrorWhenResponseNotOk: boolean;
-	} = {
-		throwErrorWhenResponseNotOk: true,
-	}): Promise<Response> {
+	public async send(
+		url: string,
+		args: {
+			method?: string,
+			body?: string,
+			headers?: Record<string, string>,
+			timeout?: number,
+			size?: number,
+		} = {},
+		extra: HttpRequestSendOptions = {
+			throwErrorWhenResponseNotOk: true,
+			validators: [],
+		},
+	): Promise<Response> {
 		const timeout = args.timeout ?? 5000;
 
 		const controller = new AbortController();
@@ -150,11 +177,14 @@ export class HttpRequestService {
 			controller.abort();
 		}, timeout);
 
-		const res = await fetch(url, {
+		const bearcaps = url.startsWith('bear:?') ? this.parseBearcaps(url) : undefined;
+
+		const res = await fetch(bearcaps?.url ?? url, {
 			method: args.method ?? 'GET',
 			headers: {
 				'User-Agent': this.config.userAgent,
 				...(args.headers ?? {}),
+				...(bearcaps?.token ? { Authorization: `Bearer ${bearcaps.token}` } : {}),
 			},
 			body: args.body,
 			size: args.size ?? 10 * 1024 * 1024,
@@ -166,6 +196,25 @@ export class HttpRequestService {
 			throw new StatusError(`${res.status} ${res.statusText}`, res.status, res.statusText);
 		}
 
+		if (res.ok) {
+			for (const validator of (extra.validators ?? [])) {
+				validator(res);
+			}
+		}
+
 		return res;
+	}
+
+	// Bearcaps https://docs.joinmastodon.org/spec/bearcaps/
+	// bear:?t=<token>&u=https://example.com/foo'
+	// -> GET https://example.com/foo Authorization: Bearer <token>
+	private parseBearcaps(url: string): { url: string, token: string | undefined } | undefined {
+		const params = new URLSearchParams(url.split('?')[1]);
+		if (!params.has('u')) return undefined;
+
+		return {
+			url: params.get('u')!,
+			token: params.get('t') ?? undefined,
+		};
 	}
 }

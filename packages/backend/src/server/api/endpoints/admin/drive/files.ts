@@ -1,5 +1,5 @@
 /*
- * SPDX-FileCopyrightText: syuilo and other misskey contributors
+ * SPDX-FileCopyrightText: syuilo and misskey-project
  * SPDX-License-Identifier: AGPL-3.0-only
  */
 
@@ -15,6 +15,7 @@ export const meta = {
 
 	requireCredential: true,
 	requireModerator: true,
+	kind: 'read:admin:drive',
 
 	res: {
 		type: 'array',
@@ -82,7 +83,7 @@ export default class extends Endpoint<typeof meta, typeof paramDef> { // eslint-
 
 			const files = await query.limit(ps.limit).getMany();
 
-			return await this.driveFileEntityService.packMany(files, { detail: true, withUser: true, self: true });
+			return await this.driveFileEntityService.packMany(files, me, { detail: true, withUser: true, self: true });
 		});
 	}
 }

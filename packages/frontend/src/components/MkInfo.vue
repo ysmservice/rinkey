@@ -1,10 +1,10 @@
 <!--
-SPDX-FileCopyrightText: syuilo and other misskey contributors
+SPDX-FileCopyrightText: syuilo and misskey-project
 SPDX-License-Identifier: AGPL-3.0-only
 -->
 
 <template>
-<div :class="[$style.root, { [$style.warn]: warn }]">
+<div :class="[$style.root, { [$style.warn]: warn, [$style.rounded]: rounded }]">
 	<i v-if="warn" class="ti ti-alert-triangle" :class="$style.i"></i>
 	<i v-else class="ti ti-info-circle" :class="$style.i"></i>
 	<div><slot></slot></div>
@@ -15,10 +15,13 @@ SPDX-License-Identifier: AGPL-3.0-only
 <script lang="ts" setup>
 import { } from 'vue';
 
-const props = defineProps<{
+const props = withDefaults(defineProps<{
 	warn?: boolean;
 	closable?: boolean;
-}>();
+	rounded?: boolean;
+}>(), {
+	rounded: true,
+});
 
 const emit = defineEmits<{
 	(ev: 'close'): void;
@@ -38,12 +41,15 @@ function close() {
 	font-size: 90%;
 	background: var(--infoBg);
 	color: var(--infoFg);
-	border-radius: var(--radius);
 	white-space: pre-wrap;
 
 	&.warn {
 		background: var(--infoWarnBg);
 		color: var(--infoWarnFg);
+	}
+
+	&.rounded {
+		border-radius: var(--radius);
 	}
 }
 

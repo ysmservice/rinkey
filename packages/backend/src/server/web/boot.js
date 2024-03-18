@@ -1,5 +1,5 @@
 /*
- * SPDX-FileCopyrightText: syuilo and other misskey contributors
+ * SPDX-FileCopyrightText: syuilo and misskey-project
  * SPDX-License-Identifier: AGPL-3.0-only
  */
 
@@ -34,17 +34,9 @@
 
 	//#region Detect language & fetch translations
 	if (!localStorage.hasOwnProperty('locale')) {
-		const supportedLangs = LANGS;
 		let lang = localStorage.getItem('lang');
-		if (lang == null || !supportedLangs.includes(lang)) {
-			if (supportedLangs.includes(navigator.language)) {
-				lang = navigator.language;
-			} else {
-				lang = supportedLangs.find(x => x.split('-')[0] === navigator.language);
-
-				// Fallback
-				if (lang == null) lang = 'en-US';
-			}
+		if (lang == null || lang.toString == null || lang.toString() === 'null') {
+			lang = 'ja-JP';
 		}
 
 		const metaRes = await window.fetch('/api/meta', {
@@ -67,12 +59,6 @@
 			return;
 		}
 
-		// for https://github.com/misskey-dev/misskey/issues/10202
-		if (lang == null || lang.toString == null || lang.toString() === 'null') {
-			console.error('invalid lang value detected!!!', typeof lang, lang);
-			lang = 'en-US';
-		}
-
 		const localRes = await window.fetch(`/assets/locales/${lang}.${v}.json`);
 		if (localRes.status === 200) {
 			localStorage.setItem('lang', lang);
@@ -86,8 +72,8 @@
 	//#endregion
 
 	//#region Script
-	function importAppScript() {
-		import(`/vite/${CLIENT_ENTRY}`)
+	async function importAppScript() {
+		await import(`/vite/${CLIENT_ENTRY}`)
 			.catch(async e => {
 				console.error(e);
 				renderError('APP_IMPORT', e);
@@ -166,13 +152,14 @@
 				<path d="M5 19h14a2 2 0 0 0 1.84 -2.75l-7.1 -12.25a2 2 0 0 0 -3.5 0l-7.1 12.25a2 2 0 0 0 1.75 2.75"></path>
 			</svg>
 			<h1>Failed to load<br>読み込みに失敗しました</h1>
-			<button class="button-big" onclick="location.reload(true);">
+			<button class="button-big" id="reload">
 				<span class="button-label-big">Reload / リロード</span>
 			</button>
 			<p><b>The following actions may solve the problem. / 以下を行うと解決する可能性があります。</b></p>
 			<p>Clear the browser cache / ブラウザのキャッシュをクリアする</p>
 			<p>Update your os and browser / ブラウザおよびOSを最新バージョンに更新する</p>
 			<p>Disable an adblocker / アドブロッカーを無効にする</p>
+	 		<p>&#40;Tor Browser&#41; Set dom.webaudio.enabled to true / dom.webaudio.enabledをtrueに設定する</p>
 			<details style="color: #86b300;">
 				<summary>Other options / その他のオプション</summary>
 				<a href="/flush">
@@ -196,6 +183,9 @@
 			<br>
 			<div id="errors"></div>
 			`;
+			document.getElementById("reload").addEventListener('click', () => {
+				location.reload();
+			});
 			errorsElement = document.getElementById('errors');
 		}
 		const detailsElement = document.createElement('details');

@@ -1,5 +1,5 @@
 <!--
-SPDX-FileCopyrightText: syuilo and other misskey contributors
+SPDX-FileCopyrightText: syuilo and misskey-project
 SPDX-License-Identifier: AGPL-3.0-only
 -->
 
@@ -72,7 +72,7 @@ SPDX-License-Identifier: AGPL-3.0-only
 </template>
 
 <script lang="ts" setup>
-import { ref, defineAsyncComponent } from 'vue';
+import { defineAsyncComponent, computed } from 'vue';
 import { supported as webAuthnSupported, create as webAuthnCreate, parseCreationOptionsFromJSON } from '@github/webauthn-json/browser-ponyfill';
 import MkButton from '@/components/MkButton.vue';
 import MkInfo from '@/components/MkInfo.vue';
@@ -80,8 +80,10 @@ import MkSwitch from '@/components/MkSwitch.vue';
 import FormSection from '@/components/form/section.vue';
 import MkFolder from '@/components/MkFolder.vue';
 import * as os from '@/os.js';
-import { $i } from '@/account.js';
+import { signinRequired } from '@/account.js';
 import { i18n } from '@/i18n.js';
+
+const $i = signinRequired();
 
 // メモ: 各エンドポイントはmeUpdatedを発行するため、refreshAccountは不要
 
@@ -91,7 +93,7 @@ withDefaults(defineProps<{
 	first: false,
 });
 
-const usePasswordLessLogin = $computed(() => $i?.usePasswordLessLogin ?? false);
+const usePasswordLessLogin = computed(() => $i.usePasswordLessLogin ?? false);
 
 async function registerTOTP(): Promise<void> {
 	const auth = await os.authenticateDialog();
@@ -135,11 +137,11 @@ function renewTOTP(): void {
 	});
 }
 
-async function unregisterKey(key) {
+async function unregisterKey(key): Promise<void> {
 	const confirm = await os.confirm({
 		type: 'question',
 		title: i18n.ts._2fa.removeKey,
-		text: i18n.t('_2fa.removeKeyConfirm', { name: key.name }),
+		text: i18n.tsx._2fa.removeKeyConfirm({ name: key.name }),
 	});
 	if (confirm.canceled) return;
 
@@ -150,11 +152,15 @@ async function unregisterKey(key) {
 		password: auth.result.password,
 		token: auth.result.token,
 		credentialId: key.id,
-	});
-	os.success();
+	})
+		.then(() => os.success())
+		.catch(error => os.alert({
+			type: 'error',
+			text: error,
+		}));
 }
 
-async function renameKey(key) {
+async function renameKey(key): Promise<void> {
 	const name = await os.inputText({
 		title: i18n.ts.rename,
 		default: key.name,
@@ -209,7 +215,7 @@ async function addSecurityKey() {
 	});
 }
 
-async function updatePasswordLessLogin(value: boolean) {
+async function updatePasswordLessLogin(value: boolean): Promise<void> {
 	await os.apiWithDialog('i/2fa/password-less', {
 		value,
 	});

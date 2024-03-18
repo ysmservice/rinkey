@@ -1,5 +1,5 @@
 /*
- * SPDX-FileCopyrightText: syuilo and other misskey contributors
+ * SPDX-FileCopyrightText: syuilo and misskey-project
  * SPDX-License-Identifier: AGPL-3.0-only
  */
 
@@ -23,6 +23,12 @@ export const meta = {
 			message: 'Incorrect password.',
 			code: 'INCORRECT_PASSWORD',
 			id: '141c598d-a825-44c8-9173-cfb9d92be493',
+		},
+
+		authenticationFailed: {
+			message: 'Authentication failed.',
+			code: 'AUTHENTICATION_FAILED',
+			id: '724bcf94-1f52-4c57-ad40-4f7fbbf6ce87',
 		},
 	},
 } as const;
@@ -51,24 +57,20 @@ export default class extends Endpoint<typeof meta, typeof paramDef> { // eslint-
 		private globalEventService: GlobalEventService,
 	) {
 		super(meta, paramDef, async (ps, me) => {
-			const token = ps.token;
 			const profile = await this.userProfilesRepository.findOneByOrFail({ userId: me.id });
-
-			if (profile.twoFactorEnabled) {
-				if (token == null) {
-					throw new Error('authentication failed');
-				}
-
-				try {
-					await this.userAuthService.twoFactorAuthenticate(profile, token);
-				} catch (e) {
-					throw new Error('authentication failed');
-				}
-			}
 
 			const passwordMatched = await bcrypt.compare(ps.password, profile.password ?? '');
 			if (!passwordMatched) {
 				throw new ApiError(meta.errors.incorrectPassword);
+			}
+
+			if (profile.twoFactorEnabled) {
+				const token = ps.token;
+				if (token == null) {
+					throw new ApiError(meta.errors.authenticationFailed);
+				}
+
+				await this.userAuthService.twoFactorAuthenticate(profile, token);
 			}
 
 			// Make sure we only delete the user's own creds
@@ -97,7 +99,7 @@ export default class extends Endpoint<typeof meta, typeof paramDef> { // eslint-
 
 			// Publish meUpdated event
 			this.globalEventService.publishMainStream(me.id, 'meUpdated', await this.userEntityService.pack(me.id, me, {
-				detail: true,
+				schema: 'MeDetailed',
 				includeSecrets: true,
 			}));
 

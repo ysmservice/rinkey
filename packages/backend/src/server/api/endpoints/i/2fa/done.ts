@@ -1,5 +1,5 @@
 /*
- * SPDX-FileCopyrightText: syuilo and other misskey contributors
+ * SPDX-FileCopyrightText: syuilo and misskey-project
  * SPDX-License-Identifier: AGPL-3.0-only
  */
 
@@ -15,6 +15,19 @@ export const meta = {
 	requireCredential: true,
 
 	secure: true,
+
+	res: {
+		type: 'object',
+		properties: {
+			backupCodes: {
+				type: 'array',
+				optional: false,
+				items: {
+					type: 'string',
+				},
+			},
+		},
+	},
 } as const;
 
 export const paramDef = {
@@ -54,7 +67,7 @@ export default class extends Endpoint<typeof meta, typeof paramDef> { // eslint-
 				throw new Error('not verified');
 			}
 
-			const backupCodes = Array.from({ length: 5 }, () => new OTPAuth.Secret().base32);
+			const backupCodes = Array.from({ length: 20 }, () => new OTPAuth.Secret().base32);
 
 			await this.userProfilesRepository.update(me.id, {
 				twoFactorSecret: profile.twoFactorTempSecret,
@@ -64,7 +77,7 @@ export default class extends Endpoint<typeof meta, typeof paramDef> { // eslint-
 
 			// Publish meUpdated event
 			this.globalEventService.publishMainStream(me.id, 'meUpdated', await this.userEntityService.pack(me.id, me, {
-				detail: true,
+				schema: 'MeDetailed',
 				includeSecrets: true,
 			}));
 

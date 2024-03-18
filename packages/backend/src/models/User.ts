@@ -1,5 +1,5 @@
 /*
- * SPDX-FileCopyrightText: syuilo and other misskey contributors
+ * SPDX-FileCopyrightText: syuilo and misskey-project
  * SPDX-License-Identifier: AGPL-3.0-only
  */
 
@@ -12,6 +12,13 @@ import { MiDriveFile } from './DriveFile.js';
 export class MiUser {
 	@PrimaryColumn(id())
 	public id: string;
+
+	@Index()
+	@Column('timestamp with time zone', {
+		comment: 'The created date of the User.',
+		default: () => 'CURRENT_TIMESTAMP',
+	})
+	public createdAt: Date;
 
 	@Index()
 	@Column('timestamp with time zone', {
@@ -143,8 +150,10 @@ export class MiUser {
 	})
 	public avatarDecorations: {
 		id: string;
-		angle: number;
-		flipH: boolean;
+		angle?: number;
+		flipH?: boolean;
+		offsetX?: number;
+		offsetY?: number;
 	}[];
 
 	@Index()

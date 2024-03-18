@@ -1,5 +1,5 @@
 /*
- * SPDX-FileCopyrightText: syuilo and other misskey contributors
+ * SPDX-FileCopyrightText: syuilo and misskey-project
  * SPDX-License-Identifier: AGPL-3.0-only
  */
 
@@ -7,9 +7,10 @@ import * as fs from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { dirname, resolve } from 'node:path';
 import * as yaml from 'js-yaml';
+import type * as Bull from 'bullmq';
 import type { RedisOptions } from 'ioredis';
 
-type RedisOptionsSource = Partial<RedisOptions> & {
+export type RedisOptionsSource = Partial<RedisOptions> & {
 	host: string;
 	port: number;
 	family?: number;
@@ -47,6 +48,14 @@ type Source = {
 	redis: RedisOptionsSource;
 	redisForPubsub?: RedisOptionsSource;
 	redisForJobQueue?: RedisOptionsSource;
+	redisForSystemQueue?: RedisOptionsSource;
+	redisForEndedPollNotificationQueue?: RedisOptionsSource;
+	redisForDeliverQueue?: RedisOptionsSource;
+	redisForInboxQueue?: RedisOptionsSource;
+	redisForDbQueue?: RedisOptionsSource;
+	redisForRelationshipQueue?: RedisOptionsSource;
+	redisForObjectStorageQueue?: RedisOptionsSource;
+	redisForWebhookDeliverQueue?: RedisOptionsSource;
 	redisForTimelines?: RedisOptionsSource;
 	meilisearch?: {
 		host: string;
@@ -78,6 +87,8 @@ type Source = {
 
 	allowedPrivateNetworks?: string[];
 
+	contentSecurityPolicy?: string;
+
 	maxFileSize?: number;
 
 	clusterLimit?: number;
@@ -87,12 +98,14 @@ type Source = {
 	outgoingAddress?: string;
 	outgoingAddressFamily?: 'ipv4' | 'ipv6' | 'dual';
 
+	bullmqQueueOptions?: Partial<Bull.QueueOptions>;
+	bullmqWorkerOptions?: Partial<Bull.WorkerOptions>;
 	deliverJobConcurrency?: number;
 	inboxJobConcurrency?: number;
-	relashionshipJobConcurrency?: number;
+	relationshipJobConcurrency?: number;
 	deliverJobPerSec?: number;
 	inboxJobPerSec?: number;
-	relashionshipJobPerSec?: number;
+	relationshipJobPerSec?: number;
 	deliverJobMaxAttempts?: number;
 	inboxJobMaxAttempts?: number;
 
@@ -158,17 +171,20 @@ export type Config = {
 	proxySmtp: string | undefined;
 	proxyBypassHosts: string[] | undefined;
 	allowedPrivateNetworks: string[] | undefined;
+	contentSecurityPolicy: string | undefined;
 	maxFileSize: number | undefined;
 	clusterLimit: number | undefined;
 	id: string;
 	outgoingAddress: string | undefined;
 	outgoingAddressFamily: 'ipv4' | 'ipv6' | 'dual' | undefined;
+	bullmqQueueOptions: Partial<Bull.QueueOptions>;
+	bullmqWorkerOptions: Partial<Bull.WorkerOptions>;
 	deliverJobConcurrency: number | undefined;
 	inboxJobConcurrency: number | undefined;
-	relashionshipJobConcurrency: number | undefined;
+	relationshipJobConcurrency: number | undefined;
 	deliverJobPerSec: number | undefined;
 	inboxJobPerSec: number | undefined;
-	relashionshipJobPerSec: number | undefined;
+	relationshipJobPerSec: number | undefined;
 	deliverJobMaxAttempts: number | undefined;
 	inboxJobMaxAttempts: number | undefined;
 	proxyRemoteFiles: boolean | undefined;
@@ -191,7 +207,14 @@ export type Config = {
 	videoThumbnailGenerator: string | null;
 	redis: RedisOptions & RedisOptionsSource;
 	redisForPubsub: RedisOptions & RedisOptionsSource;
-	redisForJobQueue: RedisOptions & RedisOptionsSource;
+	redisForSystemQueue: RedisOptions & RedisOptionsSource;
+	redisForEndedPollNotificationQueue: RedisOptions & RedisOptionsSource;
+	redisForDeliverQueue: RedisOptions & RedisOptionsSource;
+	redisForInboxQueue: RedisOptions & RedisOptionsSource;
+	redisForDbQueue: RedisOptions & RedisOptionsSource;
+	redisForRelationshipQueue: RedisOptions & RedisOptionsSource;
+	redisForObjectStorageQueue: RedisOptions & RedisOptionsSource;
+	redisForWebhookDeliverQueue: RedisOptions & RedisOptionsSource;
 	redisForTimelines: RedisOptions & RedisOptionsSource;
 	perChannelMaxNoteCacheCount: number;
 	perUserNotificationsMaxCount: number;
@@ -236,6 +259,7 @@ export function loadConfig(): Config {
 		: null;
 	const internalMediaProxy = `${scheme}://${host}/proxy`;
 	const redis = convertRedisOptions(config.redis, host);
+	const redisForJobQueue = config.redisForJobQueue ? convertRedisOptions(config.redisForJobQueue, host) : redis;
 
 	return {
 		version,
@@ -259,23 +283,33 @@ export function loadConfig(): Config {
 		s3: config.s3,
 		redis,
 		redisForPubsub: config.redisForPubsub ? convertRedisOptions(config.redisForPubsub, host) : redis,
-		redisForJobQueue: config.redisForJobQueue ? convertRedisOptions(config.redisForJobQueue, host) : redis,
+		redisForSystemQueue: config.redisForSystemQueue ? convertRedisOptions(config.redisForSystemQueue, host) : redisForJobQueue,
+		redisForEndedPollNotificationQueue: config.redisForEndedPollNotificationQueue ? convertRedisOptions(config.redisForEndedPollNotificationQueue, host) : redisForJobQueue,
+		redisForDeliverQueue: config.redisForDeliverQueue ? convertRedisOptions(config.redisForDeliverQueue, host) : redisForJobQueue,
+		redisForInboxQueue: config.redisForInboxQueue ? convertRedisOptions(config.redisForInboxQueue, host) : redisForJobQueue,
+		redisForDbQueue: config.redisForDbQueue ? convertRedisOptions(config.redisForDbQueue, host) : redisForJobQueue,
+		redisForRelationshipQueue: config.redisForRelationshipQueue ? convertRedisOptions(config.redisForRelationshipQueue, host) : redisForJobQueue,
+		redisForObjectStorageQueue: config.redisForObjectStorageQueue ? convertRedisOptions(config.redisForObjectStorageQueue, host) : redisForJobQueue,
+		redisForWebhookDeliverQueue: config.redisForWebhookDeliverQueue ? convertRedisOptions(config.redisForWebhookDeliverQueue, host) : redisForJobQueue,
 		redisForTimelines: config.redisForTimelines ? convertRedisOptions(config.redisForTimelines, host) : redis,
 		id: config.id,
 		proxy: config.proxy,
 		proxySmtp: config.proxySmtp,
 		proxyBypassHosts: config.proxyBypassHosts,
 		allowedPrivateNetworks: config.allowedPrivateNetworks,
+		contentSecurityPolicy: config.contentSecurityPolicy,
 		maxFileSize: config.maxFileSize,
 		clusterLimit: config.clusterLimit,
 		outgoingAddress: config.outgoingAddress,
 		outgoingAddressFamily: config.outgoingAddressFamily,
+		bullmqQueueOptions: config.bullmqQueueOptions ?? {},
+		bullmqWorkerOptions: config.bullmqWorkerOptions ?? {},
 		deliverJobConcurrency: config.deliverJobConcurrency,
 		inboxJobConcurrency: config.inboxJobConcurrency,
-		relashionshipJobConcurrency: config.relashionshipJobConcurrency,
+		relationshipJobConcurrency: config.relationshipJobConcurrency,
 		deliverJobPerSec: config.deliverJobPerSec,
 		inboxJobPerSec: config.inboxJobPerSec,
-		relashionshipJobPerSec: config.relashionshipJobPerSec,
+		relationshipJobPerSec: config.relationshipJobPerSec,
 		deliverJobMaxAttempts: config.deliverJobMaxAttempts,
 		inboxJobMaxAttempts: config.inboxJobMaxAttempts,
 		proxyRemoteFiles: config.proxyRemoteFiles,

@@ -1,5 +1,5 @@
 /*
- * SPDX-FileCopyrightText: syuilo and other misskey contributors
+ * SPDX-FileCopyrightText: syuilo and misskey-project
  * SPDX-License-Identifier: AGPL-3.0-only
  */
 
@@ -99,7 +99,7 @@ export class ExportCustomEmojisProcessorService {
 				await this.downloadService.downloadUrl(emoji.originalUrl, emojiPath);
 				downloaded = true;
 			} catch (e) { // TODO: 何度か再試行
-				this.logger.error(e instanceof Error ? e : new Error(e as string));
+				this.logger.error(`Failed to download emoji '${emoji.name}': ${emoji.originalUrl}`, { error: e });
 			}
 
 			if (!downloaded) {

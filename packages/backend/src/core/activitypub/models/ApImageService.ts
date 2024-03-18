@@ -1,13 +1,13 @@
 /*
- * SPDX-FileCopyrightText: syuilo and other misskey contributors
+ * SPDX-FileCopyrightText: syuilo and misskey-project
  * SPDX-License-Identifier: AGPL-3.0-only
  */
 
 import { Inject, Injectable } from '@nestjs/common';
 import { DI } from '@/di-symbols.js';
 import type { DriveFilesRepository } from '@/models/_.js';
-import type { MiDriveFile } from '@/models/DriveFile.js';
 import type { MiRemoteUser } from '@/models/User.js';
+import type { MiDriveFile } from '@/models/DriveFile.js';
 import { truncate } from '@/misc/truncate.js';
 import { DB_MAX_IMAGE_COMMENT_LENGTH } from '@/const.js';
 import { DriveService } from '@/core/DriveService.js';

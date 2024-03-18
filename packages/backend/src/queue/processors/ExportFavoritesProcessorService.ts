@@ -1,5 +1,5 @@
 /*
- * SPDX-FileCopyrightText: syuilo and other misskey contributors
+ * SPDX-FileCopyrightText: syuilo and misskey-project
  * SPDX-License-Identifier: AGPL-3.0-only
  */
 
@@ -94,7 +94,7 @@ export class ExportFavoritesProcessorService {
 					break;
 				}
 
-				cursor = favorites.at(-1)?.id ?? null;
+				cursor = favorites[favorites.length - 1].id;
 
 				for (const favorite of favorites) {
 					let poll: MiPoll | undefined;

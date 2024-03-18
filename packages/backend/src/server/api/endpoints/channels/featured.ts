@@ -1,5 +1,5 @@
 /*
- * SPDX-FileCopyrightText: syuilo and other misskey contributors
+ * SPDX-FileCopyrightText: syuilo and misskey-project
  * SPDX-License-Identifier: AGPL-3.0-only
  */
 
@@ -47,7 +47,7 @@ export default class extends Endpoint<typeof meta, typeof paramDef> { // eslint-
 
 			const channels = await query.limit(10).getMany();
 
-			return await Promise.all(channels.map(x => this.channelEntityService.pack(x, me)));
+			return await this.channelEntityService.packMany(channels, me);
 		});
 	}
 }

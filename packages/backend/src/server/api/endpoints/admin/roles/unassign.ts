@@ -1,5 +1,5 @@
 /*
- * SPDX-FileCopyrightText: syuilo and other misskey contributors
+ * SPDX-FileCopyrightText: syuilo and misskey-project
  * SPDX-License-Identifier: AGPL-3.0-only
  */
 
@@ -15,6 +15,7 @@ export const meta = {
 
 	requireCredential: true,
 	requireModerator: true,
+	kind: 'write:admin:roles',
 
 	errors: {
 		noSuchRole: {
@@ -30,7 +31,7 @@ export const meta = {
 		},
 
 		notAssigned: {
-			message: 'Not assigned.',
+			message: 'User was not assigned to this role.',
 			code: 'NOT_ASSIGNED',
 			id: 'b9060ac7-5c94-4da4-9f55-2047c953df44',
 		},

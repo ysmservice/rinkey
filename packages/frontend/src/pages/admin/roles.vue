@@ -1,5 +1,5 @@
 <!--
-SPDX-FileCopyrightText: syuilo and other misskey contributors
+SPDX-FileCopyrightText: syuilo and misskey-project
 SPDX-License-Identifier: AGPL-3.0-only
 -->
 
@@ -12,7 +12,7 @@ SPDX-License-Identifier: AGPL-3.0-only
 				<MkFolder>
 					<template #label>{{ i18n.ts._role.baseRole }}</template>
 					<div class="_gaps_s">
-						<MkInput v-model="baseRoleQ" type="search">
+						<MkInput v-model="baseRoleQ" type="text">
 							<template #prefix><i class="ti ti-search"></i></template>
 						</MkInput>
 
@@ -46,6 +46,69 @@ SPDX-License-Identifier: AGPL-3.0-only
 							<MkSwitch v-model="policies.canPublicNote">
 								<template #label>{{ i18n.ts.enable }}</template>
 							</MkSwitch>
+						</MkFolder>
+
+						<MkFolder v-if="matchQuery([i18n.ts._role._options.canInitiateConversation, 'canInitiateConversation'])">
+							<template #label>{{ i18n.ts._role._options.canInitiateConversation }}</template>
+							<template #suffix>{{ policies.canInitiateConversation ? i18n.ts.yes : i18n.ts.no }}</template>
+							<MkSwitch v-model="policies.canInitiateConversation">
+								<template #label>{{ i18n.ts.enable }}</template>
+							</MkSwitch>
+						</MkFolder>
+
+						<MkFolder v-if="matchQuery([i18n.ts._role._options.canCreateContent, 'canCreateContent'])">
+							<template #label>{{ i18n.ts._role._options.canCreateContent }}</template>
+							<template #suffix>{{ policies.canCreateContent ? i18n.ts.yes : i18n.ts.no }}</template>
+							<MkSwitch v-model="policies.canCreateContent">
+								<template #label>{{ i18n.ts.enable }}</template>
+							</MkSwitch>
+						</MkFolder>
+
+						<MkFolder v-if="matchQuery([i18n.ts._role._options.canUpdateContent, 'canUpdateContent'])">
+							<template #label>{{ i18n.ts._role._options.canUpdateContent }}</template>
+							<template #suffix>{{ policies.canUpdateContent ? i18n.ts.yes : i18n.ts.no }}</template>
+							<MkSwitch v-model="policies.canUpdateContent">
+								<template #label>{{ i18n.ts.enable }}</template>
+							</MkSwitch>
+						</MkFolder>
+
+						<MkFolder v-if="matchQuery([i18n.ts._role._options.canDeleteContent, 'canDeleteContent'])">
+							<template #label>{{ i18n.ts._role._options.canDeleteContent }}</template>
+							<template #suffix>{{ policies.canDeleteContent ? i18n.ts.yes : i18n.ts.no }}</template>
+							<MkSwitch v-model="policies.canDeleteContent">
+								<template #label>{{ i18n.ts.enable }}</template>
+							</MkSwitch>
+						</MkFolder>
+
+						<MkFolder v-if="matchQuery([i18n.ts._role._options.canPurgeAccount, 'canPurgeAccount'])">
+							<template #label>{{ i18n.ts._role._options.canPurgeAccount }}</template>
+							<template #suffix>{{ policies.canPurgeAccount ? i18n.ts.yes : i18n.ts.no }}</template>
+							<MkSwitch v-model="policies.canPurgeAccount">
+								<template #label>{{ i18n.ts.enable }}</template>
+							</MkSwitch>
+						</MkFolder>
+
+						<MkFolder v-if="matchQuery([i18n.ts._role._options.canUpdateAvatar, 'canUpdateAvatar'])">
+							<template #label>{{ i18n.ts._role._options.canUpdateAvatar }}</template>
+							<template #suffix>{{ policies.canUpdateAvatar ? i18n.ts.yes : i18n.ts.no }}</template>
+							<MkSwitch v-model="policies.canUpdateAvatar">
+								<template #label>{{ i18n.ts.enable }}</template>
+							</MkSwitch>
+						</MkFolder>
+
+						<MkFolder v-if="matchQuery([i18n.ts._role._options.canUpdateBanner, 'canUpdateBanner'])">
+							<template #label>{{ i18n.ts._role._options.canUpdateBanner }}</template>
+							<template #suffix>{{ policies.canUpdateBanner ? i18n.ts.yes : i18n.ts.no }}</template>
+							<MkSwitch v-model="policies.canUpdateBanner">
+								<template #label>{{ i18n.ts.enable }}</template>
+							</MkSwitch>
+						</MkFolder>
+
+						<MkFolder v-if="matchQuery([i18n.ts._role._options.mentionMax, 'mentionLimit'])">
+							<template #label>{{ i18n.ts._role._options.mentionMax }}</template>
+							<template #suffix>{{ policies.mentionLimit }}</template>
+							<MkInput v-model="policies.mentionLimit" type="number">
+							</MkInput>
 						</MkFolder>
 
 						<MkFolder v-if="matchQuery([i18n.ts._role._options.canInvite, 'canInvite'])">
@@ -103,10 +166,18 @@ SPDX-License-Identifier: AGPL-3.0-only
 							</MkSwitch>
 						</MkFolder>
 
-						<MkFolder v-if="matchQuery([i18n.ts._role._options.canUseTranslator, 'canSearchNotes'])">
+						<MkFolder v-if="matchQuery([i18n.ts._role._options.canUseTranslator, 'canUseTranslator'])">
 							<template #label>{{ i18n.ts._role._options.canUseTranslator }}</template>
 							<template #suffix>{{ policies.canUseTranslator ? i18n.ts.yes : i18n.ts.no }}</template>
 							<MkSwitch v-model="policies.canUseTranslator">
+								<template #label>{{ i18n.ts.enable }}</template>
+							</MkSwitch>
+						</MkFolder>
+
+						<MkFolder v-if="matchQuery([i18n.ts._role._options.canUseDriveFileInSoundSettings, 'canUseDriveFileInSoundSettings'])">
+							<template #label>{{ i18n.ts._role._options.canUseDriveFileInSoundSettings }}</template>
+							<template #suffix>{{ policies.canUseDriveFileInSoundSettings ? i18n.ts.yes : i18n.ts.no }}</template>
+							<MkSwitch v-model="policies.canUseDriveFileInSoundSettings">
 								<template #label>{{ i18n.ts.enable }}</template>
 							</MkSwitch>
 						</MkFolder>
@@ -127,6 +198,14 @@ SPDX-License-Identifier: AGPL-3.0-only
 							</MkSwitch>
 						</MkFolder>
 
+						<MkFolder v-if="matchQuery([i18n.ts._role._options.skipNsfwDetection, 'skipNsfwDetection'])">
+							<template #label>{{ i18n.ts._role._options.skipNsfwDetection }}</template>
+							<template #suffix>{{ policies.skipNsfwDetection ? i18n.ts.yes : i18n.ts.no }}</template>
+							<MkSwitch v-model="policies.skipNsfwDetection">
+								<template #label>{{ i18n.ts.enable }}</template>
+							</MkSwitch>
+						</MkFolder>
+
 						<MkFolder v-if="matchQuery([i18n.ts._role._options.pinMax, 'pinLimit'])">
 							<template #label>{{ i18n.ts._role._options.pinMax }}</template>
 							<template #suffix>{{ policies.pinLimit }}</template>
@@ -138,6 +217,13 @@ SPDX-License-Identifier: AGPL-3.0-only
 							<template #label>{{ i18n.ts._role._options.antennaMax }}</template>
 							<template #suffix>{{ policies.antennaLimit }}</template>
 							<MkInput v-model="policies.antennaLimit" type="number">
+							</MkInput>
+						</MkFolder>
+
+						<MkFolder v-if="matchQuery([i18n.ts._role._options.antennaNotesMax, 'antennaNotesLimit'])">
+							<template #label>{{ i18n.ts._role._options.antennaNotesMax }}</template>
+							<template #suffix>{{ policies.antennaNotesLimit }}</template>
+							<MkInput v-model="policies.antennaNotesLimit" type="number">
 							</MkInput>
 						</MkFolder>
 
@@ -192,19 +278,26 @@ SPDX-License-Identifier: AGPL-3.0-only
 							</MkSwitch>
 						</MkFolder>
 
+						<MkFolder v-if="matchQuery([i18n.ts._role._options.avatarDecorationLimit, 'avatarDecorationLimit'])">
+							<template #label>{{ i18n.ts._role._options.avatarDecorationLimit }}</template>
+							<template #suffix>{{ policies.avatarDecorationLimit }}</template>
+							<MkInput v-model="policies.avatarDecorationLimit" type="number" :min="0">
+							</MkInput>
+						</MkFolder>
+
 						<MkButton primary rounded @click="updateBaseRole">{{ i18n.ts.save }}</MkButton>
 					</div>
 				</MkFolder>
 				<MkButton primary rounded @click="create"><i class="ti ti-plus"></i> {{ i18n.ts._role.new }}</MkButton>
 				<div class="_gaps_s">
 					<MkFoldableSection>
-						<template #header>Manual roles</template>
+						<template #header>{{ i18n.ts._role.manualRoles }}</template>
 						<div class="_gaps_s">
 							<MkRolePreview v-for="role in roles.filter(x => x.target === 'manual')" :key="role.id" :role="role" :forModeration="true"/>
 						</div>
 					</MkFoldableSection>
 					<MkFoldableSection>
-						<template #header>Conditional roles</template>
+						<template #header>{{ i18n.ts._role.conditionalRoles }}</template>
 						<div class="_gaps_s">
 							<MkRolePreview v-for="role in roles.filter(x => x.target === 'conditional')" :key="role.id" :role="role" :forModeration="true"/>
 						</div>
@@ -226,17 +319,18 @@ import MkButton from '@/components/MkButton.vue';
 import MkRange from '@/components/MkRange.vue';
 import MkRolePreview from '@/components/MkRolePreview.vue';
 import * as os from '@/os.js';
+import { misskeyApi } from '@/scripts/misskey-api.js';
 import { i18n } from '@/i18n.js';
 import { definePageMetadata } from '@/scripts/page-metadata.js';
 import { instance } from '@/instance.js';
-import { useRouter } from '@/router.js';
 import MkFoldableSection from '@/components/MkFoldableSection.vue';
-import { ROLE_POLICIES } from '@/const';
+import { ROLE_POLICIES } from '@/const.js';
+import { useRouter } from '@/router/supplier.js';
 
 const router = useRouter();
 const baseRoleQ = ref('');
 
-const roles = await os.api('admin/roles/list');
+const roles = await misskeyApi('admin/roles/list');
 
 const policies = reactive<Record<typeof ROLE_POLICIES[number], any>>({});
 for (const ROLE_POLICY of ROLE_POLICIES) {
@@ -258,14 +352,14 @@ function create() {
 	router.push('/admin/roles/new');
 }
 
-const headerActions = $computed(() => []);
+const headerActions = computed(() => []);
 
-const headerTabs = $computed(() => []);
+const headerTabs = computed(() => []);
 
-definePageMetadata(computed(() => ({
+definePageMetadata(() => ({
 	title: i18n.ts.roles,
 	icon: 'ti ti-badges',
-})));
+}));
 </script>
 
 <style lang="scss" module>

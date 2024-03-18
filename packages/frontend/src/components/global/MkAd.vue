@@ -1,5 +1,5 @@
 <!--
-SPDX-FileCopyrightText: syuilo and other misskey contributors
+SPDX-FileCopyrightText: syuilo and misskey-project
 SPDX-License-Identifier: AGPL-3.0-only
 -->
 
@@ -14,10 +14,20 @@ SPDX-License-Identifier: AGPL-3.0-only
 			[$style.form_vertical]: chosen.place === 'vertical',
 		}]"
 	>
-		<a :href="chosen.url" target="_blank" :class="$style.link">
+		<component
+			:is="self ? 'MkA' : 'a'"
+			:class="$style.link"
+			v-bind="self ? {
+				to: chosen.url.substring(local.length),
+			} : {
+				href: chosen.url,
+				rel: 'nofollow noopener',
+				target: '_blank',
+			}"
+		>
 			<img :src="chosen.imageUrl" :class="$style.img">
 			<button class="_button" :class="$style.i" @click.prevent.stop="toggleMenu"><i :class="$style.iIcon" class="ti ti-info-circle"></i></button>
-		</a>
+		</component>
 	</div>
 	<div v-else :class="$style.menu">
 		<div :class="$style.menuContainer">
@@ -32,10 +42,10 @@ SPDX-License-Identifier: AGPL-3.0-only
 </template>
 
 <script lang="ts" setup>
-import { ref } from 'vue';
+import { ref, computed } from 'vue';
 import { i18n } from '@/i18n.js';
 import { instance } from '@/instance.js';
-import { host } from '@/config.js';
+import { url as local, host } from '@/config.js';
 import MkButton from '@/components/MkButton.vue';
 import { defaultStore } from '@/store.js';
 import * as os from '@/os.js';
@@ -63,24 +73,28 @@ const choseAd = (): Ad | null => {
 		ratio: 0,
 	} : ad);
 
-	let ads = allAds.filter(ad => props.prefer.includes(ad.place));
+	const valuableAds = allAds.filter(ad => ad.ratio !== 0);
+	const lowPriorityAds = allAds.filter(ad => ad.ratio === 0);
 
-	if (ads.length === 0) {
-		ads = allAds.filter(ad => ad.place === 'square');
+	let ads: Ad[];
+	const preferredAds = valuableAds.filter(ad => props.prefer.includes(ad.place));
+	if (preferredAds.length !== 0) {
+		ads = preferredAds;
+	} else {
+		ads = lowPriorityAds.filter(ad => props.prefer.includes(ad.place));
 	}
 
-	const lowPriorityAds = ads.filter(ad => ad.ratio === 0);
-	ads = ads.filter(ad => ad.ratio !== 0);
-
 	if (ads.length === 0) {
-		if (lowPriorityAds.length !== 0) {
-			return lowPriorityAds[Math.floor(Math.random() * lowPriorityAds.length)];
+		const nonPreferredAds = valuableAds.filter(ad => !props.prefer.includes(ad.place));
+		if (nonPreferredAds.length !== 0) {
+			ads = nonPreferredAds;
 		} else {
-			return null;
+			ads = lowPriorityAds.filter(ad => !props.prefer.includes(ad.place));
 		}
 	}
 
 	const totalFactor = ads.reduce((a, b) => a + b.ratio, 0);
+	if (totalFactor === 0) return ads[Math.floor(Math.random() * ads.length)];
 	const r = Math.random() * totalFactor;
 
 	let stackedFactor = 0;
@@ -96,7 +110,10 @@ const choseAd = (): Ad | null => {
 };
 
 const chosen = ref(choseAd());
-const shouldHide = $ref(!defaultStore.state.forceShowAds && $i && $i.policies.canHideAds && (props.specify == null));
+
+const self = computed(() => chosen.value?.url.startsWith(local));
+
+const shouldHide = ref(!defaultStore.state.forceShowAds && $i && $i.policies.canHideAds && (props.specify == null));
 
 function reduceFrequency(): void {
 	if (chosen.value == null) return;
@@ -148,7 +165,8 @@ function reduceFrequency(): void {
 	&.form_vertical {
 		> .link,
 		> .link > .img {
-			max-width: min(100px, 100%);
+			max-width: min(300px, 100%);
+			max-height: 450px;
 		}
 	}
 }

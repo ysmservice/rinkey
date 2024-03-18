@@ -1,5 +1,5 @@
 /*
- * SPDX-FileCopyrightText: syuilo and other misskey contributors
+ * SPDX-FileCopyrightText: syuilo and misskey-project
  * SPDX-License-Identifier: AGPL-3.0-only
  */
 
@@ -51,21 +51,23 @@ export class FetchInstanceMetadataService {
 	}
 
 	@bindThis
+	// public for test
 	public async tryLock(host: string): Promise<boolean> {
-		const mutex = await this.redisClient.set(`fetchInstanceMetadata:mutex:${host}`, '1', 'GET');
-		return mutex !== '1';
+		const mutex = await this.redisClient.set(`fetchInstanceMetadata:mutex:${host}`, Date.now(), 'EX', 60 * 5, 'NX');
+		return mutex !== null;
 	}
 
 	@bindThis
-	public unlock(host: string): Promise<'OK'> {
-		return this.redisClient.set(`fetchInstanceMetadata:mutex:${host}`, '0');
+	// public for test
+	public unlock(host: string): Promise<number> {
+		return this.redisClient.unlink(`fetchInstanceMetadata:mutex:${host}`);
 	}
 
 	@bindThis
 	public async fetchInstanceMetadata(instance: MiInstance, force = false): Promise<void> {
 		const host = instance.host;
 		// Acquire mutex to ensure no parallel runs
-		if (!await this.tryLock(host)) return;
+		if (!await this.tryLock(host) && !force) return;
 		try {
 			if (!force) {
 				const _instance = await this.federatedInstanceService.fetch(host);
@@ -116,7 +118,7 @@ export class FetchInstanceMetadataService {
 
 			this.logger.succ(`Successfuly updated metadata of ${instance.host}`);
 		} catch (e) {
-			this.logger.error(`Failed to update metadata of ${instance.host}: ${e}`);
+			this.logger.error(`Failed to update metadata of ${instance.host}: ${e}`, { error: e });
 		} finally {
 			await this.unlock(host);
 		}
@@ -160,7 +162,7 @@ export class FetchInstanceMetadataService {
 
 			return info as NodeInfo;
 		} catch (err) {
-			this.logger.error(`Failed to fetch nodeinfo of ${instance.host}: ${err}`);
+			this.logger.error(`Failed to fetch nodeinfo of ${instance.host}: ${err}`, { error: err });
 
 			throw err;
 		}

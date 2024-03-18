@@ -1,5 +1,5 @@
 /*
- * SPDX-FileCopyrightText: syuilo and other misskey contributors
+ * SPDX-FileCopyrightText: syuilo and misskey-project
  * SPDX-License-Identifier: AGPL-3.0-only
  */
 
@@ -15,6 +15,7 @@ export const meta = {
 
 	requireCredential: true,
 	requireAdmin: true,
+	kind: 'read:admin:meta',
 
 	res: {
 		type: 'object',
@@ -29,6 +30,18 @@ export const meta = {
 				optional: false, nullable: false,
 			},
 			hcaptchaSiteKey: {
+				type: 'string',
+				optional: false, nullable: true,
+			},
+			enableMcaptcha: {
+				type: 'boolean',
+				optional: false, nullable: false,
+			},
+			mcaptchaSiteKey: {
+				type: 'string',
+				optional: false, nullable: true,
+			},
+			mcaptchaInstanceUrl: {
 				type: 'string',
 				optional: false, nullable: true,
 			},
@@ -107,6 +120,16 @@ export const meta = {
 					nullable: false,
 				},
 			},
+			sensitiveMediaHosts: {
+				type: 'array',
+				optional: true,
+				nullable: false,
+				items: {
+					type: 'string',
+					optional: false,
+					nullable: false,
+				},
+			},
 			pinnedUsers: {
 				type: 'array',
 				optional: false, nullable: false,
@@ -135,6 +158,21 @@ export const meta = {
 					type: 'string',
 				},
 			},
+			prohibitedWords: {
+				type: 'array',
+				optional: false, nullable: false,
+				items: {
+					type: 'string',
+				},
+			},
+			bannedEmailDomains: {
+				type: 'array',
+				optional: true, nullable: false,
+				items: {
+					type: 'string',
+					optional: false, nullable: false,
+				},
+			},
 			preservedUsernames: {
 				type: 'array',
 				optional: false, nullable: false,
@@ -143,6 +181,10 @@ export const meta = {
 				},
 			},
 			hcaptchaSecretKey: {
+				type: 'string',
+				optional: false, nullable: true,
+			},
+			mcaptchaSecretKey: {
 				type: 'string',
 				optional: false, nullable: true,
 			},
@@ -219,6 +261,18 @@ export const meta = {
 				type: 'string',
 				optional: false, nullable: true,
 			},
+			enableTruemailApi: {
+				type: 'boolean',
+				optional: false, nullable: false,
+			},
+			truemailInstance: {
+				type: 'string',
+				optional: false, nullable: true,
+			},
+			truemailAuthKey: {
+				type: 'string',
+				optional: false, nullable: true,
+			},
 			enableChartsForRemoteUser: {
 				type: 'boolean',
 				optional: false, nullable: false,
@@ -271,6 +325,97 @@ export const meta = {
 				type: 'number',
 				optional: false, nullable: false,
 			},
+			urlPreviewDenyList: {
+				type: 'array',
+				optional: true, nullable: false,
+				items: {
+					type: 'string',
+					optional: false, nullable: false,
+				},
+			},
+			featuredGameChannels: {
+				type: 'array',
+				optional: false, nullable: false,
+				items: {
+					type: 'string',
+				},
+			},
+			backgroundImageUrl: {
+				type: 'string',
+				optional: false, nullable: true,
+			},
+			deeplAuthKey: {
+				type: 'string',
+				optional: false, nullable: true,
+			},
+			deeplIsPro: {
+				type: 'boolean',
+				optional: false, nullable: false,
+			},
+			defaultDarkTheme: {
+				type: 'string',
+				optional: false, nullable: true,
+			},
+			defaultLightTheme: {
+				type: 'string',
+				optional: false, nullable: true,
+			},
+			description: {
+				type: 'string',
+				optional: false, nullable: true,
+			},
+			disableRegistration: {
+				type: 'boolean',
+				optional: false, nullable: false,
+			},
+			impressumUrl: {
+				type: 'string',
+				optional: false, nullable: true,
+			},
+			maintainerEmail: {
+				type: 'string',
+				optional: false, nullable: true,
+			},
+			maintainerName: {
+				type: 'string',
+				optional: false, nullable: true,
+			},
+			name: {
+				type: 'string',
+				optional: false, nullable: true,
+			},
+			shortName: {
+				type: 'string',
+				optional: false, nullable: true,
+			},
+			privacyPolicyUrl: {
+				type: 'string',
+				optional: false, nullable: true,
+			},
+			repositoryUrl: {
+				type: 'string',
+				optional: false, nullable: true,
+			},
+			summalyProxy: {
+				type: 'string',
+				optional: false, nullable: true,
+			},
+			themeColor: {
+				type: 'string',
+				optional: false, nullable: true,
+			},
+			tosUrl: {
+				type: 'string',
+				optional: false, nullable: true,
+			},
+			uri: {
+				type: 'string',
+				optional: false, nullable: false,
+			},
+			version: {
+				type: 'string',
+				optional: false, nullable: false,
+			},
 		},
 	},
 } as const;
@@ -311,6 +456,9 @@ export default class extends Endpoint<typeof meta, typeof paramDef> { // eslint-
 				emailRequiredForSignup: instance.emailRequiredForSignup,
 				enableHcaptcha: instance.enableHcaptcha,
 				hcaptchaSiteKey: instance.hcaptchaSiteKey,
+				enableMcaptcha: instance.enableMcaptcha,
+				mcaptchaSiteKey: instance.mcaptchaSitekey,
+				mcaptchaInstanceUrl: instance.mcaptchaInstanceUrl,
 				enableRecaptcha: instance.enableRecaptcha,
 				recaptchaSiteKey: instance.recaptchaSiteKey,
 				enableTurnstile: instance.enableTurnstile,
@@ -336,9 +484,12 @@ export default class extends Endpoint<typeof meta, typeof paramDef> { // eslint-
 				hiddenTags: instance.hiddenTags,
 				blockedHosts: instance.blockedHosts,
 				silencedHosts: instance.silencedHosts,
+				sensitiveMediaHosts: instance.sensitiveMediaHosts,
 				sensitiveWords: instance.sensitiveWords,
+				prohibitedWords: instance.prohibitedWords,
 				preservedUsernames: instance.preservedUsernames,
 				hcaptchaSecretKey: instance.hcaptchaSecretKey,
+				mcaptchaSecretKey: instance.mcaptchaSecretKey,
 				recaptchaSecretKey: instance.recaptchaSecretKey,
 				turnstileSecretKey: instance.turnstileSecretKey,
 				sensitiveMediaDetection: instance.sensitiveMediaDetection,
@@ -360,10 +511,14 @@ export default class extends Endpoint<typeof meta, typeof paramDef> { // eslint-
 				enableActiveEmailValidation: instance.enableActiveEmailValidation,
 				enableVerifymailApi: instance.enableVerifymailApi,
 				verifymailAuthKey: instance.verifymailAuthKey,
+				enableTruemailApi: instance.enableTruemailApi,
+				truemailInstance: instance.truemailInstance,
+				truemailAuthKey: instance.truemailAuthKey,
 				enableChartsForRemoteUser: instance.enableChartsForRemoteUser,
 				enableChartsForFederatedInstances: instance.enableChartsForFederatedInstances,
 				enableServerMachineStats: instance.enableServerMachineStats,
 				enableIdenticonGeneration: instance.enableIdenticonGeneration,
+				bannedEmailDomains: instance.bannedEmailDomains,
 				policies: { ...DEFAULT_POLICIES, ...instance.policies },
 				manifestJsonOverride: instance.manifestJsonOverride,
 				enableFanoutTimeline: instance.enableFanoutTimeline,
@@ -373,6 +528,8 @@ export default class extends Endpoint<typeof meta, typeof paramDef> { // eslint-
 				perUserHomeTimelineCacheMax: instance.perUserHomeTimelineCacheMax,
 				perUserListTimelineCacheMax: instance.perUserListTimelineCacheMax,
 				notesPerOneAd: instance.notesPerOneAd,
+				urlPreviewDenyList: instance.urlPreviewDenyList,
+				featuredGameChannels: instance.featuredGameChannels,
 			};
 		});
 	}

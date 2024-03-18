@@ -1,5 +1,5 @@
 /*
- * SPDX-FileCopyrightText: syuilo and other misskey contributors
+ * SPDX-FileCopyrightText: syuilo and misskey-project
  * SPDX-License-Identifier: AGPL-3.0-only
  */
 
@@ -13,6 +13,7 @@ export const meta = {
 	tags: ['account', 'notes'],
 
 	requireCredential: true,
+	requireRolePolicy: 'canUpdateContent',
 
 	kind: 'write:account',
 
@@ -51,8 +52,8 @@ export default class extends Endpoint<typeof meta, typeof paramDef> { // eslint-
 				throw err;
 			});
 
-			return await this.userEntityService.pack<true, true>(me.id, me, {
-				detail: true,
+			return await this.userEntityService.pack(me.id, me, {
+				schema: 'MeDetailed',
 			});
 		});
 	}

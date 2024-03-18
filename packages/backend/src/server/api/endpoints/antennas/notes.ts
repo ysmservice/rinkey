@@ -1,5 +1,5 @@
 /*
- * SPDX-FileCopyrightText: syuilo and other misskey contributors
+ * SPDX-FileCopyrightText: syuilo and misskey-project
  * SPDX-License-Identifier: AGPL-3.0-only
  */
 
@@ -12,8 +12,9 @@ import { NoteReadService } from '@/core/NoteReadService.js';
 import { DI } from '@/di-symbols.js';
 import { NoteEntityService } from '@/core/entities/NoteEntityService.js';
 import { IdService } from '@/core/IdService.js';
-import { FunoutTimelineService } from '@/core/FunoutTimelineService.js';
+import { FanoutTimelineService } from '@/core/FanoutTimelineService.js';
 import { GlobalEventService } from '@/core/GlobalEventService.js';
+import { trackPromise } from '@/misc/promise-tracker.js';
 import { ApiError } from '../../error.js';
 
 export const meta = {
@@ -71,7 +72,7 @@ export default class extends Endpoint<typeof meta, typeof paramDef> { // eslint-
 		private noteEntityService: NoteEntityService,
 		private queryService: QueryService,
 		private noteReadService: NoteReadService,
-		private funoutTimelineService: FunoutTimelineService,
+		private fanoutTimelineService: FanoutTimelineService,
 		private globalEventService: GlobalEventService,
 	) {
 		super(meta, paramDef, async (ps, me) => {
@@ -92,13 +93,13 @@ export default class extends Endpoint<typeof meta, typeof paramDef> { // eslint-
 
 			antenna.isActive = true;
 			antenna.lastUsedAt = new Date();
-			this.antennasRepository.update(antenna.id, antenna);
+			trackPromise(this.antennasRepository.update(antenna.id, antenna));
 
 			if (needPublishEvent) {
 				this.globalEventService.publishInternalEvent('antennaUpdated', antenna);
 			}
 
-			let noteIds = await this.funoutTimelineService.get(`antennaTimeline:${antenna.id}`, untilId, sinceId);
+			let noteIds = await this.fanoutTimelineService.get(`antennaTimeline:${antenna.id}`, untilId, sinceId);
 			noteIds = noteIds.slice(0, ps.limit);
 			if (noteIds.length === 0) {
 				return [];
@@ -123,9 +124,7 @@ export default class extends Endpoint<typeof meta, typeof paramDef> { // eslint-
 				notes.sort((a, b) => a.id > b.id ? -1 : 1);
 			}
 
-			if (notes.length > 0) {
-				this.noteReadService.read(me.id, notes);
-			}
+			this.noteReadService.read(me.id, notes);
 
 			return await this.noteEntityService.packMany(notes, me);
 		});
