@@ -1,7 +1,7 @@
 {
 	"type": "module",
 	"name": "misskey-js",
-	"version": "2024.3.1-host.2b",
+	"version": "2024.3.1-host.2c",
 	"description": "Misskey SDK for JavaScript",
 	"types": "./built/dts/index.d.ts",
 	"exports": {
@@ -50,7 +50,7 @@
 		"ncp": "2.0.0",
 		"nodemon": "3.1.0",
 		"tsd": "0.30.7",
-		"typescript": "5.4.2"
+		"typescript": "5.4.3"
 	},
 	"files": [
 		"built",
