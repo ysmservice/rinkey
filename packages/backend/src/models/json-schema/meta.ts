@@ -183,6 +183,14 @@ export const packedMetaLiteSchema = {
 				},
 			},
 		},
+		wellKnownWebsites: {
+			type: 'array',
+			optional: false, nullable: false,
+			items: {
+				type: 'string',
+				optional: false, nullable: false,
+			},
+		},
 		notesPerOneAd: {
 			type: 'number',
 			optional: false, nullable: false,
@@ -202,6 +210,10 @@ export const packedMetaLiteSchema = {
 		},
 		mediaProxy: {
 			type: 'string',
+			optional: false, nullable: false,
+		},
+		enableUrlPreview: {
+			type: 'boolean',
 			optional: false, nullable: false,
 		},
 		backgroundImageUrl: {
