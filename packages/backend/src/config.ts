@@ -81,6 +81,14 @@ type Source = {
 		}
 	};
 
+	skebStatus?: {
+		method: string;
+		endpoint: string;
+		headers: { [x: string]: string };
+		parameters: { [x: string]: string };
+		userIdParameterName: string;
+	}
+
 	proxy?: string;
 	proxySmtp?: string;
 	proxyBypassHosts?: string[];
@@ -115,6 +123,7 @@ type Source = {
 
 	bypassRateLimit?: { header: string; value: string }[];
 
+	remapDriveFileUrlForActivityPub?: { target: string; replacement: string }[];
 	signToActivityPubGet?: boolean;
 
 	perChannelMaxNoteCacheCount?: number;
@@ -169,6 +178,13 @@ export type Config = {
 			useProxy?: boolean;
 		}
 	} | undefined;
+	skebStatus: {
+		method: string;
+		endpoint: string;
+		headers: { [x: string]: string };
+		parameters: { [x: string]: string };
+		userIdParameterName: string;
+	} | undefined;
 	proxy: string | undefined;
 	proxySmtp: string | undefined;
 	proxyBypassHosts: string[] | undefined;
@@ -190,6 +206,7 @@ export type Config = {
 	deliverJobMaxAttempts: number | undefined;
 	inboxJobMaxAttempts: number | undefined;
 	proxyRemoteFiles: boolean | undefined;
+	remapDriveFileUrlForActivityPub: { target: string; replacement: string }[] | undefined;
 	signToActivityPubGet: boolean | undefined;
 
 	version: string;
@@ -295,6 +312,7 @@ export function loadConfig(): Config {
 		redisForObjectStorageQueue: config.redisForObjectStorageQueue ? convertRedisOptions(config.redisForObjectStorageQueue, host) : redisForJobQueue,
 		redisForWebhookDeliverQueue: config.redisForWebhookDeliverQueue ? convertRedisOptions(config.redisForWebhookDeliverQueue, host) : redisForJobQueue,
 		redisForTimelines: config.redisForTimelines ? convertRedisOptions(config.redisForTimelines, host) : redis,
+		skebStatus: config.skebStatus,
 		id: config.id,
 		proxy: config.proxy,
 		proxySmtp: config.proxySmtp,
@@ -316,6 +334,7 @@ export function loadConfig(): Config {
 		deliverJobMaxAttempts: config.deliverJobMaxAttempts,
 		inboxJobMaxAttempts: config.inboxJobMaxAttempts,
 		proxyRemoteFiles: config.proxyRemoteFiles,
+		remapDriveFileUrlForActivityPub: config.remapDriveFileUrlForActivityPub,
 		signToActivityPubGet: config.signToActivityPubGet,
 		mediaProxy: externalMediaProxy ?? internalMediaProxy,
 		externalMediaProxyEnabled: externalMediaProxy !== null && externalMediaProxy !== internalMediaProxy,

@@ -4865,7 +4865,7 @@ export interface Locale extends ILocale {
      */
     "wellKnownWebsites": string;
     /**
-     * スペースで区切るとAND指定になり、改行で区切るとOR指定になります。スラッシュで囲むと正規表現になります。一致した場合、外部サイトへのリダイレクトの警告を省略させることができます。
+     * スペースで区切るとAND指定になり、改行で区切るとOR指定になります。スラッシュで囲むと正規表現になります。ドメイン名だけ書くと後方一致になります。一致した場合、外部サイトへのリダイレクトの警告を省略させることができます。
      */
     "wellKnownWebsitesDescription": string;
     /**
@@ -8396,6 +8396,10 @@ export interface Locale extends ILocale {
          * 今日誕生日のユーザー
          */
         "birthdayFollowings": string;
+        /**
+         * もうすぐ誕生日のユーザー
+         */
+        "birthdaySoon": string;
     };
     "_cw": {
         /**
@@ -10108,6 +10112,62 @@ export interface Locale extends ILocale {
          * プロキシには下記パラメータがクエリ文字列として連携されます。プロキシ側がこれらをサポートしない場合、設定値は無視されます。
          */
         "summaryProxyDescription2": string;
+    };
+    "_skebStatus": {
+        "_genres": {
+            /**
+             * イラスト
+             */
+            "art": string;
+            /**
+             * コミック
+             */
+            "comic": string;
+            /**
+             * ボイス
+             */
+            "voice": string;
+            /**
+             * テキスト
+             */
+            "novel": string;
+            /**
+             * ムービー
+             */
+            "video": string;
+            /**
+             * ミュージック
+             */
+            "music": string;
+            /**
+             * アドバイス
+             */
+            "correction": string;
+        };
+        /**
+         * 募集中
+         */
+        "seeking": string;
+        /**
+         * 停止中
+         */
+        "stopped": string;
+        /**
+         * クライアント
+         */
+        "client": string;
+        /**
+         * {x}円
+         */
+        "yenX": ParameterizedString<"x">;
+        /**
+         * 納品実績 {n}件
+         */
+        "nWorks": ParameterizedString<"n">;
+        /**
+         * 取引実績 {n}件
+         */
+        "nRequests": ParameterizedString<"n">;
     };
 }
 declare const locales: {

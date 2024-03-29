@@ -3805,11 +3805,33 @@ declare module '../api.js' {
     ): Promise<SwitchCaseResponseType<E, P>>;
 
     /**
+     * Find users who have a birthday on the specified range.
+     * 
+     * **Credential required**: *Yes* / **Permission**: *read:account*
+     */
+    request<E extends 'users/get-following-birthday-users', P extends Endpoints[E]['req']>(
+      endpoint: E,
+      params: P,
+      credential?: string | null,
+    ): Promise<SwitchCaseResponseType<E, P>>;
+
+    /**
      * Get a list of other users that the specified user frequently replies to.
      * 
      * **Credential required**: *No*
      */
     request<E extends 'users/get-frequently-replied-users', P extends Endpoints[E]['req']>(
+      endpoint: E,
+      params: P,
+      credential?: string | null,
+    ): Promise<SwitchCaseResponseType<E, P>>;
+
+    /**
+     * No description provided.
+     * 
+     * **Credential required**: *No*
+     */
+    request<E extends 'users/get-skeb-status', P extends Endpoints[E]['req']>(
       endpoint: E,
       params: P,
       credential?: string | null,
