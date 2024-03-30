@@ -5423,6 +5423,11 @@ export type operations = {
         'application/json': {
           /** Format: misskey:id */
           userId: string;
+          /**
+           * @description Since deletion by an administrator is a moderation action, the default is to soft delete.
+           * @default true
+           */
+          soft?: boolean;
         };
       };
     };
