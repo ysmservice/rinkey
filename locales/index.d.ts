@@ -3009,6 +3009,14 @@ export interface Locale extends ILocale {
      */
     "verificationEmailSent": string;
     /**
+     * メールアドレスの登録が必要です
+     */
+    "emailRegistrationRequired": string;
+    /**
+     * {instance}はメールアドレスの登録が必要です。ここをクリックしてメールアドレスを登録してください。
+     */
+    "emailRegistrationRequiredBanner": ParameterizedString<"instance">;
+    /**
      * 未設定
      */
     "notSet": string;
@@ -4880,6 +4888,10 @@ export interface Locale extends ILocale {
      */
     "warningRedirectingExternalWebsiteDescription": ParameterizedString<"url">;
     /**
+     * このサイトを信頼する
+     */
+    "warningRedirectingExternalWebsiteTrustThisSite": string;
+    /**
      * サムネイルの表示を制限するURL
      */
     "urlPreviewDenyList": string;
@@ -5023,6 +5035,10 @@ export interface Locale extends ILocale {
      * このユーザーをミュートする
      */
     "muteThisUser": string;
+    /**
+     * こちら
+     */
+    "here": string;
     "_bubbleGame": {
         /**
          * 遊び方
@@ -7844,6 +7860,25 @@ export interface Locale extends ILocale {
          * バックアップコードが全て使用されました。認証アプリを利用できない場合、これ以上アカウントにアクセスできなくなります。認証アプリを再登録してください。
          */
         "backupCodesExhaustedWarning": string;
+        /**
+         * バックアップコードを保存しましたか？
+         */
+        "backupCodesSavedConfirmTitle": string;
+        /**
+         * 二要素認証アプリとバックアップコードの両方を紛失した場合、アカウントにアクセスできなくなります。
+         * 誰とも共有せず、適切な方法で保管してください。
+         *
+         * $[x2 二要素認証設定は自分以外の誰にも変更できませんので、$[fg.color=red 運営チームも無効化することはできません。]]
+         */
+        "backupCodesSavedConfirmDescription": string;
+        /**
+         * バックアップコードを保存しました
+         */
+        "backupCodesSavedConfirmChecked": string;
+        /**
+         * 設定方法でお困りの際は、{link}を参照してください。
+         */
+        "howto2fa": ParameterizedString<"link">;
     };
     "_permissions": {
         /**
