@@ -221,7 +221,10 @@ export function alert(props: {
 	type?: 'error' | 'info' | 'success' | 'warning' | 'waiting' | 'question';
 	title?: string | null;
 	text?: string | null;
+	switchLabel?: string | null;
 	details?: Record<string, string>;
+	okWaitInitiate?: 'dialog' | 'input' | 'switch';
+	okWaitDuration?: number;
 }): Promise<void> {
 	return new Promise(resolve => {
 		popup(MkDialog, props, {
@@ -236,10 +239,13 @@ export function confirm(props: {
 	type: 'error' | 'info' | 'success' | 'warning' | 'waiting' | 'question';
 	title?: string | null;
 	text?: string | null;
+	switchLabel?: string | null;
 	details?: Record<string, string>;
 	okText?: string;
+	okWaitInitiate?: 'dialog' | 'input' | 'switch';
+	okWaitDuration?: number;
 	cancelText?: string;
-}): Promise<{ canceled: boolean }> {
+}): Promise<{ canceled: boolean, result?: string | number | true | null, toggle?: boolean }> {
 	return new Promise(resolve => {
 		popup(MkDialog, {
 			...props,
