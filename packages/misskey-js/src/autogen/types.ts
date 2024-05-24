@@ -814,6 +814,15 @@ export type paths = {
      */
     post: operations['admin___sso___update'];
   };
+  '/announcement': {
+    /**
+     * announcement
+     * @description No description provided.
+     *
+     * **Credential required**: *No*
+     */
+    post: operations['announcement'];
+  };
   '/announcements': {
     /**
      * announcements
@@ -10688,6 +10697,60 @@ export type operations = {
       /** @description OK (without any results) */
       204: {
         content: never;
+      };
+      /** @description Client error */
+      400: {
+        content: {
+          'application/json': components['schemas']['Error'];
+        };
+      };
+      /** @description Authentication error */
+      401: {
+        content: {
+          'application/json': components['schemas']['Error'];
+        };
+      };
+      /** @description Forbidden error */
+      403: {
+        content: {
+          'application/json': components['schemas']['Error'];
+        };
+      };
+      /** @description I'm Ai */
+      418: {
+        content: {
+          'application/json': components['schemas']['Error'];
+        };
+      };
+      /** @description Internal server error */
+      500: {
+        content: {
+          'application/json': components['schemas']['Error'];
+        };
+      };
+    };
+  };
+  /**
+   * announcement
+   * @description No description provided.
+   *
+   * **Credential required**: *No*
+   */
+  announcement: {
+    requestBody: {
+      content: {
+        'application/json': {
+          /** Format: misskey:id */
+          announcementId: string;
+        };
+      };
+    };
+    responses: {
+      /** @description OK (with results) */
+      200: {
+        content: {
+          'application/json': components['schemas']['Announcement'];
+        };
       };
       /** @description Client error */
       400: {
@@ -22183,6 +22246,8 @@ export type operations = {
           limit?: number;
           /** @default 0 */
           offset?: number;
+          /** @default false */
+          excludeChannels?: boolean;
         };
       };
     };
@@ -27446,7 +27511,52 @@ export type operations = {
       200: {
         content: {
           'application/json': {
-            items: Record<string, never>[];
+            image?: {
+              link?: string;
+              url: string;
+              title?: string;
+            };
+            paginationLinks?: {
+              self?: string;
+              first?: string;
+              next?: string;
+              last?: string;
+              prev?: string;
+            };
+            link?: string;
+            title?: string;
+            items: {
+                link?: string;
+                guid?: string;
+                title?: string;
+                pubDate?: string;
+                creator?: string;
+                summary?: string;
+                content?: string;
+                isoDate?: string;
+                categories?: string[];
+                contentSnippet?: string;
+                enclosure?: {
+                  url: string;
+                  length?: number;
+                  type?: string;
+                };
+              }[];
+            feedUrl?: string;
+            description?: string;
+            itunes?: {
+              image?: string;
+              owner?: {
+                name?: string;
+                email?: string;
+              };
+              author?: string;
+              summary?: string;
+              explicit?: string;
+              categories?: string[];
+              keywords?: string[];
+              [key: string]: unknown;
+            };
           };
         };
       };

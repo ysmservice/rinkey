@@ -20,7 +20,7 @@ SPDX-License-Identifier: AGPL-3.0-only
 	</div>
 	<div class="detail">
 		<div>
-			<Mfm :text="report.comment" :linkBehavior="'window'"/>
+			<Mfm :text="report.comment" :linkNavigationBehavior="'window'"/>
 		</div>
 		<hr/>
 		<div>{{ i18n.ts.reporter }}: <MkA :to="`/admin/user/${report.reporter.id}`" class="_link" :behavior="'window'">@{{ report.reporter.username }}</MkA></div>
@@ -28,7 +28,7 @@ SPDX-License-Identifier: AGPL-3.0-only
 			{{ i18n.ts.moderator }}:
 			<MkAcct :user="report.assignee"/>
 		</div>
-		<div v-if="report.category">カテゴリ: {{ i18n.ts[`_abuseReportCategory.${report.category}`] }}</div>
+		<div v-if="report.category">{{ i18n.ts.category }}: {{ i18n.ts[`_abuseReportCategory.${report.category}`] }}</div>
 		<div><MkTime :time="report.createdAt"/></div>
 		<div class="action">
 			<MkSwitch v-model="forward" :disabled="report.targetUser.host == null || report.resolved">
