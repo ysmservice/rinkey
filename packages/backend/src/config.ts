@@ -81,6 +81,16 @@ type Source = {
 		}
 	};
 
+	elasticsearch?: {
+		host: string;
+		port: string;
+		user: string;
+		pass: string;
+		ssl?: boolean;
+		rejectUnauthorized?: boolean;
+		index: string;
+	};
+
 	skebStatus?: {
 		method: string;
 		endpoint: string;
@@ -163,6 +173,15 @@ export type Config = {
 		ssl?: boolean;
 		index: string;
 		scope?: 'local' | 'global' | string[];
+	} | undefined;
+	elasticsearch: {
+		host: string;
+		port: string;
+		user: string;
+		pass: string;
+		ssl?: boolean;
+		rejectUnauthorized?: boolean;
+		index: string;
 	} | undefined;
 	s3: {
 		baseUrl: string;
@@ -302,6 +321,7 @@ export function loadConfig(): Config {
 		dbReplications: config.dbReplications,
 		dbSlaves: config.dbSlaves,
 		meilisearch: config.meilisearch,
+		elasticsearch: config.elasticsearch,
 		s3: config.s3,
 		redis,
 		redisForPubsub: config.redisForPubsub ? convertRedisOptions(config.redisForPubsub, host) : redis,

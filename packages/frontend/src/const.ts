@@ -92,6 +92,7 @@ export const ROLE_POLICIES = [
 	'canSearchNotes',
 	'canUseTranslator',
 	'canUseDriveFileInSoundSettings',
+	'canUseReaction',
 	'canHideAds',
 	'driveCapacityMb',
 	'alwaysMarkNsfw',
@@ -107,6 +108,8 @@ export const ROLE_POLICIES = [
 	'userEachUserListsLimit',
 	'rateLimitFactor',
 	'avatarDecorationLimit',
+	'mutualLinkSectionLimit',
+	'mutualLinkLimit',
 ] as const;
 
 // なんか動かない
