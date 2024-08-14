@@ -1323,7 +1323,7 @@ _initialAccountSetting:
   pushNotificationDescription: "푸시 알림을 활성화하면 {name}의 알림을 나의 기기에서 받아볼 수 있게 됩니다."
   initialAccountSettingCompleted: "초기 설정을 모두 마쳤습니다!"
   haveFun: "{name}와 함께 즐거운 시간 보내세요!"
-  youCanContinueTutorial: "이대로 {name}(Misskey)의 사용법에 대해 튜토리얼을 진행할 수도 있지만, 여기서 중단하고 바로 시작할 수도 있습니다."
+  continueTutorial: "이대로 {name}(Misskey)의 사용법에 대해 튜토리얼을 진행합니다."
   startTutorial: "튜토리얼 시작"
   skipAreYouSure: "초기 설정을 중단하시겠습니까?"
   laterAreYouSure: "초기 설정을 나중에 진행하시겠습니까?"
@@ -2256,7 +2256,7 @@ _profile:
   addMutualLinkSection: "섹션 추가"
   sectionName: "섹션 이름"
   sectionNameNoneDescription: "섹션 이름이 표시되지 않도록 합니다."
-  sectionNameNone: "섹션 이름을 숨기기"
+  sectionNameNone: "이름이 표시되지 않는 섹션"
 _exportOrImport:
   allNotes: "모든 노트"
   favoritedNotes: "즐겨찾기한 노트"
