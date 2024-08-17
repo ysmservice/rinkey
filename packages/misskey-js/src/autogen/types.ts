@@ -3847,6 +3847,7 @@ export type components = {
           mutualLinks: ({
               /** Format: misskey:id */
               id: string;
+              /** Format: url */
               url: string;
               /** Format: misskey:id */
               fileId: string;
@@ -6839,6 +6840,8 @@ export type operations = {
         'application/json': {
           /** Format: misskey:id */
           userId: string;
+          /** Format: misskey:id */
+          itemId: string;
         };
       };
     };
