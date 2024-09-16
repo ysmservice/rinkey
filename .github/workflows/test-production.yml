@@ -6,6 +6,7 @@ on:
       - beta
       - io
       - host
+      - bun
   pull_request:
 
 env:

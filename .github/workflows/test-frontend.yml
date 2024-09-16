@@ -6,6 +6,7 @@ on:
       - beta
       - io
       - host
+      - bun
     paths:
       - packages/frontend/**
       # for permissions

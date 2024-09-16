@@ -9,6 +9,7 @@ on:
       - beta
       - io
       - host
+      - bun
     paths:
       - packages/misskey-js/**
   pull_request:
