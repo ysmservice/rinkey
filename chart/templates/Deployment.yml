@@ -44,8 +44,6 @@ spec:
               value: false
             - name: DFLY_tcp_backlog
               value: 2048
-            - name: DFLY_cluster_mode
-              value: emulated
             - name: DFLY_lock_on_hashtags
               value: true
             - name: DFLY_pipeline_squash
