@@ -396,6 +396,7 @@ import * as ep___reversi_invitations from './endpoints/reversi/invitations.js';
 import * as ep___reversi_showGame from './endpoints/reversi/show-game.js';
 import * as ep___reversi_surrender from './endpoints/reversi/surrender.js';
 import * as ep___reversi_verify from './endpoints/reversi/verify.js';
+import * as ep___watermark_update from './endpoints/watermark/update.js';
 import { GetterService } from './GetterService.js';
 import { ApiLoggerService } from './ApiLoggerService.js';
 import type { Provider } from '@nestjs/common';
@@ -790,6 +791,7 @@ const $reversi_invitations: Provider = { provide: 'ep:reversi/invitations', useC
 const $reversi_showGame: Provider = { provide: 'ep:reversi/show-game', useClass: ep___reversi_showGame.default };
 const $reversi_surrender: Provider = { provide: 'ep:reversi/surrender', useClass: ep___reversi_surrender.default };
 const $reversi_verify: Provider = { provide: 'ep:reversi/verify', useClass: ep___reversi_verify.default };
+const $watermark_update: Provider = { provide: 'ep:watermark/update', useClass: ep___watermark_update.default };
 
 @Module({
 	imports: [
@@ -1188,6 +1190,7 @@ const $reversi_verify: Provider = { provide: 'ep:reversi/verify', useClass: ep__
 		$reversi_showGame,
 		$reversi_surrender,
 		$reversi_verify,
+		$watermark_update,
 	],
 	exports: [
 		$admin_meta,
@@ -1578,6 +1581,7 @@ const $reversi_verify: Provider = { provide: 'ep:reversi/verify', useClass: ep__
 		$reversi_showGame,
 		$reversi_surrender,
 		$reversi_verify,
+		$watermark_update,
 	],
 })
 export class EndpointsModule {}

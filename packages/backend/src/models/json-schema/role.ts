@@ -240,6 +240,10 @@ export const packedRolePoliciesSchema = {
 			type: 'boolean',
 			optional: false, nullable: false,
 		},
+		canUseReaction: {
+			type: 'boolean',
+			optional: false, nullable: false,
+		},
 		canUseTranslator: {
 			type: 'boolean',
 			optional: false, nullable: false,
@@ -248,7 +252,7 @@ export const packedRolePoliciesSchema = {
 			type: 'boolean',
 			optional: false, nullable: false,
 		},
-		canUseReaction: {
+		canUseWatermark: {
 			type: 'boolean',
 			optional: false, nullable: false,
 		},

@@ -586,6 +586,7 @@ import type {
 	ReversiSurrenderRequest,
 	ReversiVerifyRequest,
 	ReversiVerifyResponse,
+	WatermarkUpdateRequest,
 } from './entities.js';
 
 export type Endpoints = {
@@ -979,4 +980,5 @@ export type Endpoints = {
 	'reversi/show-game': { req: ReversiShowGameRequest; res: ReversiShowGameResponse };
 	'reversi/surrender': { req: ReversiSurrenderRequest; res: EmptyResponse };
 	'reversi/verify': { req: ReversiVerifyRequest; res: ReversiVerifyResponse };
+	'watermark/update': { req: WatermarkUpdateRequest; res: EmptyResponse };
 }
