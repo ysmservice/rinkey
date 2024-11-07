@@ -52,12 +52,30 @@ SPDX-License-Identifier: AGPL-3.0-only
 								<img src="/client-assets/default-watermark.png" style="width: 100%; height: 100%; object-fit: contain; opacity: 0.5;"/>
 							</div>
 						</div>
-						<FormSplit>
-							<div class="_buttons">
-								<MkButton primary rounded><i class="ti ti-photo"/>{{ i18n.ts.selectFile }}</MkButton>
-								<MkButton danger rounded><i class="ti ti-trash"></i> {{ i18n.ts.defa }}</MkButton>
-							</div>
-						</FormSplit>
+					</FormSection>
+					<div class="_buttons">
+						<MkButton primary><i class="ti ti-photo"/>{{ i18n.ts.selectFile }}</MkButton>
+						<MkButton><i class="ti ti-photo"></i> {{ i18n.ts.default }}</MkButton>
+					</div>
+					<FormSection>
+						<template #label>{{ i18n.ts.placement }}</template>
+						<div class="_gaps_s">
+							<MkRadios v-model="watermarkPreset.placement">
+								<option value="leftTop">{{ i18n.ts.leftTop }}</option>
+								<option value="centerTop">{{ i18n.ts.centerTop }}</option>
+								<option value="rightTop">{{ i18n.ts.rightTop }}</option>
+							</MkRadios>
+							<MkRadios v-model="watermarkPreset.placement">
+								<option value="leftCenter">{{ i18n.ts.leftCenter }}</option>
+								<option value="centerCenter">{{ i18n.ts.center }}</option>
+								<option value="rightCenter">{{ i18n.ts.rightCenter }}</option>
+							</MkRadios>
+							<MkRadios v-model="watermarkPreset.placement">
+								<option value="leftBottom">{{ i18n.ts.leftBottom }}</option>
+								<option value="centerBottom">{{ i18n.ts.centerBottom }}</option>
+								<option value="rightBottom">{{ i18n.ts.rightBottom }}</option>
+							</MkRadios>
+						</div>
 					</FormSection>
 				</div>
 			</MkFolder>
@@ -105,6 +123,7 @@ import { signinRequired } from '@/account.js';
 import MkInfo from "@/components/MkInfo.vue";
 import MkButton from "@/components/MkButton.vue";
 import MkFolder from "@/components/MkFolder.vue";
+import MkRadios from "@/components/MkRadios.vue";
 
 const $i = signinRequired();
 
@@ -132,6 +151,7 @@ const keepOriginalFilename = computed(defaultStore.makeGetterSetter('keepOrigina
 
 const useWatermark = computed(defaultStore.makeGetterSetter('useWatermark'));
 const watermarkConfig = computed(defaultStore.makeGetterSetter('watermarkConfig'));
+const watermarkPreset = ref<{ placement: string }>({});
 
 misskeyApi('drive').then(info => {
 	capacity.value = info.capacity;

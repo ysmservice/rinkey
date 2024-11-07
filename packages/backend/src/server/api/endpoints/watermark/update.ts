@@ -27,7 +27,7 @@ export const paramDef = {
 		background: { type: 'string' },
 		rotate: { type: 'number' },
 	},
-	required: ['fileId'],
+	required: [],
 } as const;
 
 // eslint-disable-next-line import/no-default-export
