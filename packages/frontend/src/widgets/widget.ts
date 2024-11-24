@@ -18,9 +18,7 @@ export type WidgetComponentProps<P extends Record<string, unknown>> = {
 	widget?: Widget<P>;
 };
 
-export type WidgetComponentEmits<P extends Record<string, unknown>> = {
-	(ev: 'updateProps', props: P);
-};
+export type WidgetComponentEmits<P extends Record<string, unknown>> = (ev: 'updateProps', props: P) => void;
 
 export type WidgetComponentExpose = {
 	name: string;

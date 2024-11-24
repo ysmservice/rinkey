@@ -5,13 +5,16 @@
 import * as fs from 'node:fs';
 import * as yaml from 'js-yaml';
 
-const merge = (...args) => args.reduce((a, c) => ({
-	...a,
-	...c,
-	...Object.entries(a)
-		.filter(([k]) => c && typeof c[k] === 'object')
-		.reduce((a, [k, v]) => (a[k] = merge(v, c[k]), a), {})
-}), {});
+const merge = (...args) => args.reduce((a, c) => {
+	for (const [k, v] of Object.entries(c)) {
+		if (typeof v === 'object' && typeof a[k] === 'object') {
+			a[k] = merge(a[k], v);
+		} else {
+			a[k] = v;
+		}
+	}
+	return a;
+}, {});
 
 const languages = [
 	'ar-SA',

@@ -543,6 +543,7 @@ interface Watcher {
 import lightTheme from '@/themes/l-light.json5';
 import darkTheme from '@/themes/d-green-lime.json5';
 
+// biome-ignore lint/complexity/noStaticOnlyClass: utility class
 export class ColdDeviceStorage {
 	public static default = {
 		lightTheme,

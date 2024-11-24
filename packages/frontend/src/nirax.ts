@@ -302,8 +302,12 @@ export class Router extends EventEmitter<RouterEvent> implements IRouter {
 					}
 
 					if (route.query != null && queryString != null) {
-						const queryObject = [...new URLSearchParams(queryString).entries()]
-							.reduce((obj, entry) => ({ ...obj, [entry[0]]: entry[1] }), {});
+						const queryObject = [
+							...new URLSearchParams(queryString).entries(),
+						].reduce((obj, entry) => {
+							obj[entry[0]] = entry[1];
+							return obj;
+						}, {});
 
 						for (const q in route.query) {
 							const as = route.query[q];

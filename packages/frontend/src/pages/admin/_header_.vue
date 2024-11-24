@@ -61,9 +61,7 @@ const props = defineProps<{
 	thin?: boolean;
 }>();
 
-const emit = defineEmits<{
-	(ev: 'update:tab', key: string);
-}>();
+const emit = defineEmits<(ev: 'update:tab', key: string) => void>();
 
 const pageMetadata = injectReactiveMetadata();
 

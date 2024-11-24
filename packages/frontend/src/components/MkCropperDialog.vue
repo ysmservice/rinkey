@@ -62,6 +62,7 @@ let cropper: Cropper | null = null;
 const loading = ref(true);
 
 const ok = async () => {
+	// biome-ignore lint/suspicious/noAsyncPromiseExecutor: desired behavior
 	const promise = new Promise<Misskey.entities.DriveFile>(async (res) => {
 		const croppedImage = await cropper?.getCropperImage();
 		const croppedSection = await cropper?.getCropperSelection();

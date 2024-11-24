@@ -19,16 +19,14 @@
 		"tsc-esm": "tsc --outDir built/esm",
 		"tsc-dts": "tsc --outDir built/dts --declaration true --emitDeclarationOnly true --declarationMap true",
 		"watch": "nodemon -w src -e ts,js,cjs,mjs,json --exec \"pnpm run build:tsc\"",
-		"eslint": "eslint . --ext .js,.jsx,.ts,.tsx",
 		"typecheck": "tsc --noEmit",
-		"lint": "pnpm typecheck && pnpm eslint"
+		"biome": "biome",
+		"format": "biome check --write",
+		"lint": "pnpm typecheck && biome check"
 	},
 	"devDependencies": {
-		"@misskey-dev/eslint-plugin": "1.0.0",
+		"@biomejs/biome": "1.9.4",
 		"@types/node": "22.9.1",
-		"@typescript-eslint/eslint-plugin": "7.10.0",
-		"@typescript-eslint/parser": "7.10.0",
-		"eslint": "8.57.1",
 		"nodemon": "3.1.7",
 		"typescript": "5.6.3"
 	},
@@ -37,7 +35,5 @@
 		"esbuild": "0.24.0",
 		"glob": "11.0.0"
 	},
-	"files": [
-		"built"
-	]
+	"files": ["built"]
 }

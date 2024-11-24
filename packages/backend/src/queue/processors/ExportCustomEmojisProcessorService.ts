@@ -121,6 +121,7 @@ export class ExportCustomEmojisProcessorService {
 		metaStream.end();
 
 		// Create archive
+		// biome-ignore lint/suspicious/noAsyncPromiseExecutor: desired behavior
 		await new Promise<void>(async (resolve) => {
 			const [archivePath, archiveCleanup] = await createTemp();
 			const archiveStream = fs.createWriteStream(archivePath);

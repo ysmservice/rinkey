@@ -116,16 +116,15 @@ function get(): PollEditorModelValue {
 	};
 
 	const calcAfter = () => {
-		let base = parseInt(after.value.toString());
+		let base = Number.parseInt(after.value.toString());
 		switch (unit.value) {
-			// @ts-expect-error fallthrough
+			// biome-ignore lint/suspicious/noFallthroughSwitchClause: desired behavior
 			case 'day': base *= 24;
-			// @ts-expect-error fallthrough
+			// biome-ignore lint/suspicious/noFallthroughSwitchClause: desired behavior
 			case 'hour': base *= 60;
-			// @ts-expect-error fallthrough
+			// biome-ignore lint/suspicious/noFallthroughSwitchClause: desired behavior
 			case 'minute': base *= 60;
-			// eslint-disable-next-line no-fallthrough
-			case 'second': return base *= 1000;
+			case 'second': return base * 1000;
 			default: return null;
 		}
 	};

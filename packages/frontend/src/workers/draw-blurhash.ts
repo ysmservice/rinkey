@@ -7,6 +7,7 @@ import { render } from 'buraha';
 
 const canvas = new OffscreenCanvas(64, 64);
 
+// biome-ignore lint/suspicious/noGlobalAssign: web worker
 onmessage = (event) => {
 	// console.log(event.data);
 	if (!('id' in event.data && typeof event.data.id === 'string')) {

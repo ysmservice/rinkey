@@ -13,8 +13,9 @@
 		"test": "vitest --run --globals",
 		"test-and-coverage": "vitest --run --coverage --globals",
 		"typecheck": "vue-tsc --noEmit",
-		"eslint": "eslint --quiet \"src/**/*.{ts,vue}\"",
-		"lint": "pnpm typecheck && pnpm eslint"
+		"biome": "biome",
+		"format": "biome check --write",
+		"lint": "pnpm typecheck && biome check"
 	},
 	"dependencies": {
 		"@discordapp/twemoji": "15.1.0",
@@ -79,7 +80,7 @@
 		"vuedraggable": "next"
 	},
 	"devDependencies": {
-		"@misskey-dev/eslint-plugin": "1.0.0",
+		"@biomejs/biome": "1.9.4",
 		"@misskey-dev/summaly": "MisskeyIO/summaly#5.1.1",
 		"@storybook/addon-actions": "8.4.5",
 		"@storybook/addon-essentials": "8.4.5",
@@ -110,16 +111,11 @@
 		"@types/throttle-debounce": "5.0.2",
 		"@types/tinycolor2": "1.4.6",
 		"@types/ws": "8.5.13",
-		"@typescript-eslint/eslint-plugin": "7.10.0",
-		"@typescript-eslint/parser": "7.10.0",
 		"@vitest/coverage-v8": "2.1.5",
 		"@vue/runtime-core": "3.5.13",
 		"acorn": "8.14.0",
 		"cross-env": "7.0.3",
 		"cypress": "13.16.0",
-		"eslint": "8.57.1",
-		"eslint-plugin-import": "2.31.0",
-		"eslint-plugin-vue": "9.31.0",
 		"fast-glob": "3.3.2",
 		"happy-dom": "15.11.6",
 		"intersection-observer": "0.12.2",
@@ -137,7 +133,6 @@
 		"vitest": "2.1.5",
 		"vitest-fetch-mock": "0.3.0",
 		"vue-component-type-helpers": "2.1.10",
-		"vue-eslint-parser": "9.4.3",
 		"vue-tsc": "2.1.10"
 	}
 }

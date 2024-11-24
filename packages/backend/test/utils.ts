@@ -388,6 +388,7 @@ export function connectStream<C extends keyof misskey.Channels>(user: UserToken,
 }
 
 export const waitFire = async <C extends keyof misskey.Channels>(user: UserToken, channel: C, trgr: () => any, cond: (msg: Record<string, any>) => boolean, params?: misskey.Channels[C]['params']) => {
+	// biome-ignore lint/suspicious/noAsyncPromiseExecutor: desired behavior
 	return new Promise<boolean>(async (res, rej) => {
 		let timer: NodeJS.Timeout | null = null;
 
@@ -437,6 +438,7 @@ export function makeStreamCatcher<T>(
 	extractor: (message: Record<string, any>) => T,
 	timeout = 60 * 1000): Promise<T> {
 	let ws: WebSocket;
+	// biome-ignore lint/suspicious/noAsyncPromiseExecutor: desired behavior
 	const p = new Promise<T>(async (resolve) => {
 		ws = await connectStream(user, channel, (msg) => {
 			if (cond(msg)) {

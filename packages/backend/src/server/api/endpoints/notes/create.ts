@@ -225,6 +225,7 @@ export const paramDef = {
 			},
 		},
 	},
+	// biome-ignore lint/suspicious/noThenProperty: api design
 	then: {
 		properties: {
 			text: {

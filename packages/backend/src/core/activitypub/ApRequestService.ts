@@ -34,6 +34,7 @@ type PrivateKey = {
 	keyId: string;
 };
 
+// biome-ignore lint/complexity/noStaticOnlyClass: utility class
 export class ApRequestCreator {
 	static createSignedPost(args: { key: PrivateKey, url: string, body: string, digest?: string, additionalHeaders: Record<string, string> }): Signed {
 		const u = new URL(args.url);

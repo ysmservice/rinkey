@@ -1,0 +1,154 @@
+{
+  "$schema": "https://biomejs.dev/schemas/1.9.4/schema.json",
+  "vcs": { "enabled": true, "clientKind": "git", "useIgnoreFile": true },
+  "files": {
+    "ignore": [
+      "*.min.js",
+      "api.json",
+      "built",
+      "nsfw-model",
+      "packages/backend/built",
+      "packages/backend/nsfw-model",
+      "packages/frontend/built",
+      "packages/sw/built",
+      "packages/misskey-js/built",
+      "packages/misskey-reversi/built",
+      "packages/misskey-bubble-game/built",
+      "locales/index.d.ts",
+      "packages/misskey-js/generator/api.json"
+    ]
+  },
+  "organizeImports": {
+    "enabled": true
+  },
+  "linter": {
+    "enabled": true,
+    "ignore": ["packages/misskey-js/src/autogen"],
+    "rules": {
+      "recommended": true,
+      "complexity": {
+        "noForEach": "info",
+        "noUselessConstructor": {
+          "level": "info",
+          "fix": "none"
+        },
+        "noUselessLabel": {
+          "level": "info",
+          "fix": "none"
+        },
+        "noUselessUndefinedInitialization": {
+          "level": "info",
+          "fix": "none"
+        },
+        "useArrowFunction": {
+          "level": "info",
+          "fix": "none"
+        },
+        "useLiteralKeys": {
+          "level": "info",
+          "fix": "none"
+        },
+        "useOptionalChain": {
+          "level": "info",
+          "fix": "none"
+        }
+      },
+      "performance": {
+        "noDelete": {
+          "level": "info",
+          "fix": "none"
+        }
+      },
+      "style": {
+        "noCommaOperator": "warn",
+        "noNegationElse": {
+          "level": "off",
+          "fix": "none"
+        },
+        "noNonNullAssertion": {
+          "level": "info",
+          "fix": "none"
+        },
+        "noParameterAssign": "info",
+        "noUselessElse": {
+          "level": "info",
+          "fix": "none"
+        },
+        "useImportType": {
+          "level": "off",
+          "fix": "none"
+        },
+        "useNodejsImportProtocol": {
+          "level": "off",
+          "fix": "none"
+        },
+        "useTemplate": {
+          "level": "warn",
+          "fix": "safe"
+        }
+      },
+      "suspicious": {
+        "noAssignInExpressions": "info",
+        "noConfusingVoidType": {
+          "level": "warn",
+          "fix": "none"
+        },
+        "noDoubleEquals": {
+          "level": "warn",
+          "fix": "none",
+          "options": {
+            "ignoreNull": false
+          }
+        },
+        "noExplicitAny": "warn",
+        "noImplicitAnyLet": "warn"
+      }
+    }
+  },
+  "formatter": {
+    "enabled": true,
+    "lineWidth": 140,
+    "useEditorconfig": true
+  },
+  "javascript": {
+    "formatter": {
+      "arrowParentheses": "asNeeded",
+      "quoteStyle": "single"
+    },
+    "parser": {
+      "unsafeParameterDecoratorsEnabled": true
+    }
+  },
+  "overrides": [
+    {
+      "include": ["packages/backend/migration/*.js", "migration/*.js"],
+      "linter": {
+        "rules": {
+          "style": {
+            "noUnusedTemplateLiteral": {
+              "level": "off",
+              "fix": "none"
+            }
+          }
+        }
+      }
+    },
+    {
+      "include": ["*.vue"],
+      "linter": {
+        "rules": {
+          "style": {
+            "useConst": {
+              "level": "off",
+              "fix": "none"
+            },
+            "useImportType": {
+              "level": "off",
+              "fix": "none"
+            }
+          }
+        }
+      }
+    }
+  ]
+}

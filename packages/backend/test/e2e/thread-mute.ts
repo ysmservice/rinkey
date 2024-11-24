@@ -54,7 +54,9 @@ describe('Note thread mute', () => {
 		assert.strictEqual(res.body.hasUnreadMentions, false);
 	});
 
-	test('ミュートしているスレッドからメンションされても、ストリームに unreadMention イベントが流れてこない', () => new Promise<void>(async done => {
+	test('ミュートしているスレッドからメンションされても、ストリームに unreadMention イベントが流れてこない', () =>
+		// biome-ignore lint/suspicious/noAsyncPromiseExecutor: desired behavior
+		new Promise<void>(async done => {
 		// 状態リセット
 		await api('i/read-all-unread-notes', {}, alice);
 

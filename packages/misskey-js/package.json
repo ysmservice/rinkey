@@ -23,26 +23,24 @@
 		"tsd": "tsd",
 		"api": "pnpm api-extractor run --local --verbose",
 		"api-prod": "pnpm api-extractor run --verbose",
-		"eslint": "eslint . --ext .js,.jsx,.ts,.tsx",
 		"typecheck": "tsc --noEmit",
-		"lint": "pnpm typecheck && pnpm eslint",
+		"biome": "biome",
+		"format": "biome check --write",
+		"lint": "pnpm typecheck && biome check",
 		"jest": "jest --coverage --detectOpenHandles",
 		"test": "pnpm jest && pnpm tsd",
-		"update-autogen-code": "pnpm --filter misskey-js-type-generator generate && ncp generator/built/autogen src/autogen"
+		"update-autogen-code": "pnpm --filter misskey-js-type-generator generate && ncp generator/built/autogen src/autogen && biome check --write --unsafe --diagnostic-level=error src/autogen"
 	},
 	"repository": {
 		"type": "git",
 		"url": "git+https://github.com/misskey-dev/misskey.js.git"
 	},
 	"devDependencies": {
+		"@biomejs/biome": "1.9.4",
 		"@microsoft/api-extractor": "7.47.12",
-		"@misskey-dev/eslint-plugin": "1.0.0",
 		"@swc/jest": "0.2.37",
 		"@types/jest": "29.5.14",
 		"@types/node": "22.9.1",
-		"@typescript-eslint/eslint-plugin": "7.10.0",
-		"@typescript-eslint/parser": "7.10.0",
-		"eslint": "8.57.1",
 		"jest": "29.7.0",
 		"jest-fetch-mock": "3.0.3",
 		"jest-websocket-mock": "2.5.0",
@@ -52,11 +50,7 @@
 		"tsd": "0.31.2",
 		"typescript": "5.6.3"
 	},
-	"files": [
-		"built",
-		"built/esm",
-		"built/dts"
-	],
+	"files": ["built", "built/esm", "built/dts"],
 	"dependencies": {
 		"@swc/cli": "0.5.1",
 		"@swc/core": "1.9.3",

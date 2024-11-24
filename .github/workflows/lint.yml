@@ -11,14 +11,12 @@ on:
       - packages/frontend/**
       - packages/sw/**
       - packages/misskey-js/**
-      - packages/shared/.eslintrc.js
   pull_request:
     paths:
       - packages/backend/**
       - packages/frontend/**
       - packages/sw/**
       - packages/misskey-js/**
-      - packages/shared/.eslintrc.js
 
 jobs:
   pnpm_install:
@@ -63,7 +61,7 @@ jobs:
         cache: 'pnpm'
     - run: corepack enable
     - run: pnpm i --frozen-lockfile
-    - run: pnpm --filter ${{ matrix.workspace }} run eslint
+    - run: pnpm --filter ${{ matrix.workspace }} run biome ci --reporter=github --max-diagnostics=none
 
   typecheck:
     needs: [pnpm_install]

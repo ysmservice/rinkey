@@ -250,6 +250,7 @@ async function composeNotification(data: PushNotificationDataMap[keyof PushNotif
 }
 
 export async function createEmptyNotification(): Promise<void> {
+	// biome-ignore lint/suspicious/noAsyncPromiseExecutor: desired behavior
 	return new Promise<void>(async res => {
 		const i18n = await (swLang.i18n ?? swLang.fetchLocale());
 		const { t } = i18n;

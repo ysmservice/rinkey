@@ -60,9 +60,7 @@ const props = withDefaults(defineProps<{
 	tabs: () => ([] as Tab[]),
 });
 
-const emit = defineEmits<{
-	(ev: 'update:tab', key: string);
-}>();
+const emit = defineEmits<(ev: 'update:tab', key: string) => void>();
 
 const pageMetadata = injectReactiveMetadata();
 
