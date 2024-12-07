@@ -16,19 +16,41 @@
 	// switch dynamically
 	--minBottomSpacingMobile: calc(72px + max(12px, env(safe-area-inset-bottom, 0px)));
 	--minBottomSpacing: var(--minBottomSpacingMobile);
+	/* ベースカラー */
+  --bg: #F0F8FF; /* 背景色 */
+  --fg: #333333; /* メインテキスト色 */
+  --accent: #ADD8E6; /* アクセントカラー */
+  --link: #87CEEB; /* リンク色 */
 
 	@media (max-width: 500px) {
 		--margin: var(--marginHalf);
 	}
 
 	//--ad: rgb(255 169 0 / 10%);
-	--eventFollow: #36aed2;
 	--eventRenote: #36d298;
-	--eventReply: #007aff;
-	--eventReactionHeart: #dd2e44;
+
 	--eventReaction: #e99a0b;
 	--eventAchievement: #cb9a11;
 	--eventOther: #88a6b7;
+	/* イベントカラー */
+  --eventFollow: #87CEEB;
+  --eventReply: #ADD8E6;
+  --eventReactionHeart: #FFC0CB;
+
+  /* その他 */
+  --buttonBg: #ADD8E6; /* ボタン背景色 */
+  --buttonHover: #4682B4; /* ボタンホバー色 */
+  --border: #B0E0E6; /* ボーダー色 */
+
+	/* スクロールバー */
+  --scrollbarHandle: #ADD8E6; /* 通常時のスクロールバー色 (ライトブルー) */
+  --scrollbarHandleHover: #87CEEB; /* ホバー時の色 (スカイブルー) */
+  --scrollbarTrack: #F0F8FF; /* スクロールバー背景色 (アリスブルー) */
+
+	/* ボーダーと影 */
+  --border: #B0E0E6; /* ボーダー色 */
+  --box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1); /* 柔らかい影 */
+	--transition: all 0.3s ease-in-out;
 }
 
 ::selection {
@@ -64,6 +86,8 @@ html {
 
 		&::-webkit-scrollbar-thumb {
 			background: var(--scrollbarHandle);
+			border-radius: var(--radius);
+      transition: var(--transition);
 
 			&:hover {
 				background: var(--scrollbarHandleHover);
